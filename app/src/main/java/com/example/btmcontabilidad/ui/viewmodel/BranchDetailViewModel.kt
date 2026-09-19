@@ -7,6 +7,7 @@ import com.example.btmcontabilidad.domain.model.Advance
 import com.example.btmcontabilidad.domain.model.Branch
 import com.example.btmcontabilidad.domain.model.Collection
 import com.example.btmcontabilidad.domain.model.LedgerEntry
+import com.example.btmcontabilidad.domain.model.WeeklySettlement
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +23,8 @@ data class BranchDetailUiState(
     val branch: Branch? = null,
     val statementEntries: List<LedgerEntry> = emptyList(),
     val recentCollections: List<Collection> = emptyList(),
-    val recentAdvances: List<Advance> = emptyList()
+    val recentAdvances: List<Advance> = emptyList(),
+    val weeklySettlements: List<WeeklySettlement> = emptyList()
 )
 
 class BranchDetailViewModel(
@@ -43,8 +45,9 @@ class BranchDetailViewModel(
                     repositoryContainer.branchRepository.getBranchById(branchId),
                     repositoryContainer.ledgerRepository.getBranchLedger(branchId),
                     repositoryContainer.collectionRepository.getCollectionsForBranch(branchId),
-                    repositoryContainer.advanceRepository.getAdvancesForBranch(branchId)
-                ) { branch, ledgerList, collectionsList, advancesList ->
+                    repositoryContainer.advanceRepository.getAdvancesForBranch(branchId),
+                    repositoryContainer.weeklySettlementRepository.getForBranch(branchId)
+                ) { branch, ledgerList, collectionsList, advancesList, weeklySettlements ->
                     if (branch == null) {
                         BranchDetailUiState(
                             isLoading = false,
@@ -57,7 +60,8 @@ class BranchDetailViewModel(
                             branch = branch,
                             statementEntries = ledgerList,
                             recentCollections = collectionsList,
-                            recentAdvances = advancesList
+                            recentAdvances = advancesList,
+                            weeklySettlements = weeklySettlements
                         )
                     }
                 }.collect { newState ->

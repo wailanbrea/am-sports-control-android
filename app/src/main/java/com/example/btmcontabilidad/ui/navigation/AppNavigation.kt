@@ -23,6 +23,9 @@ data class RegisterCollectionRoute(val initialBranchId: String? = null) : AppRou
 data class RegisterAdvanceRoute(val initialBranchId: String? = null) : AppRoute
 
 @Serializable
+data class RegisterWeeklySettlementRoute(val branchId: String, val previousBalance: String) : AppRoute
+
+@Serializable
 data object LedgerRoute : AppRoute
 
 @Serializable

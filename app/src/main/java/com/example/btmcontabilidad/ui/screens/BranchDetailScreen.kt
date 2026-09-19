@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalAtm
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.AlertDialog
@@ -57,6 +58,7 @@ import com.example.btmcontabilidad.domain.calculator.FinancialCalculator
 import com.example.btmcontabilidad.domain.model.Branch
 import com.example.btmcontabilidad.domain.model.LedgerEntry
 import com.example.btmcontabilidad.domain.model.LedgerEntryType
+import com.example.btmcontabilidad.domain.model.WeeklySettlement
 import com.example.btmcontabilidad.domain.model.LedgerSourceType
 import com.example.btmcontabilidad.ui.theme.BTMContabilidadTheme
 import com.example.btmcontabilidad.ui.theme.DeepNavy
@@ -81,7 +83,8 @@ fun BranchDetailScreen(
     onEdit: (String) -> Unit = {},
     onDeleted: () -> Unit = {},
     onRegisterCollection: (String) -> Unit = {},
-    onRegisterAdvance: (String) -> Unit = {}
+    onRegisterAdvance: (String) -> Unit = {},
+    onRegisterWeeklySettlement: (String, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -172,8 +175,33 @@ fun BranchDetailScreen(
                     BranchDetailHeaderCard(
                         branch = branch,
                         onRegisterCollection = { onRegisterCollection(branch.id) },
-                        onRegisterAdvance = { onRegisterAdvance(branch.id) }
+                        onRegisterAdvance = { onRegisterAdvance(branch.id) },
+                        onRegisterWeeklySettlement = { onRegisterWeeklySettlement(branch.id, branch.currentBalance.toPlainString()) }
                     )
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Cuadres semanales", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        OutlinedButton(onClick = { onRegisterWeeklySettlement(branch.id, branch.currentBalance.toPlainString()) }) {
+                            Icon(Icons.Default.Calculate, contentDescription = null)
+                            Text("Nuevo")
+                        }
+                    }
+                }
+
+                if (uiState.weeklySettlements.isEmpty()) {
+                    item {
+                        Text("No hay cuadres semanales registrados.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    items(uiState.weeklySettlements, key = { it.id }) { settlement ->
+                        WeeklySettlementCard(settlement)
+                    }
                 }
 
                 // Account Statement Header
@@ -243,7 +271,8 @@ fun BranchDetailScreen(
 fun BranchDetailHeaderCard(
     branch: Branch,
     onRegisterCollection: () -> Unit,
-    onRegisterAdvance: () -> Unit
+    onRegisterAdvance: () -> Unit,
+    onRegisterWeeklySettlement: () -> Unit
 ) {
     val roundedBalance = FinancialCalculator.roundMoney(branch.currentBalance)
 
@@ -382,6 +411,29 @@ fun BranchDetailHeaderCard(
                     Text("Adelanto", fontWeight = FontWeight.Bold)
                 }
             }
+
+            OutlinedButton(
+                onClick = onRegisterWeeklySettlement,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+            ) {
+                Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                Text("Registrar cuadre semanal", fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun WeeklySettlementCard(settlement: WeeklySettlement) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("${settlement.weekStart} al ${settlement.weekEnd}", fontWeight = FontWeight.Bold)
+            Text("Ventas ${FinancialCalculator.formatCurrency(settlement.salesAmount)} · Premios ${FinancialCalculator.formatCurrency(settlement.prizesAmount)}")
+            Text("Entregado ${FinancialCalculator.formatCurrency(settlement.cashDeliveredAmount)}")
+            Text("Balance semanal: ${FinancialCalculator.formatCurrency(settlement.weeklyBalance)}", fontWeight = FontWeight.Bold)
+            Text("Saldo: ${FinancialCalculator.formatCurrency(settlement.balanceBefore)} → ${FinancialCalculator.formatCurrency(settlement.balanceAfter)}", style = MaterialTheme.typography.bodySmall)
         }
     }
 }

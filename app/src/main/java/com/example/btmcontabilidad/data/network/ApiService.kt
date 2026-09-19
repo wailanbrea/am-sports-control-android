@@ -75,6 +75,19 @@ interface ApiService {
         @Body request: CreateAdvanceRequest
     ): Response<ApiEnvelope<AdvanceResponse>>
 
+    @GET("weekly-settlements")
+    suspend fun weeklySettlements(
+        @Header("Authorization") bearerToken: String,
+        @Query("branch_id") branchId: String? = null
+    ): Response<ApiEnvelope<List<WeeklySettlementResponse>>>
+
+    @POST("weekly-settlements")
+    suspend fun createWeeklySettlement(
+        @Header("Authorization") bearerToken: String,
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body request: CreateWeeklySettlementRequest
+    ): Response<ApiEnvelope<WeeklySettlementResponse>>
+
     @POST("ledger-entries/{entryId}/reverse")
     suspend fun createReversal(
         @Header("Authorization") bearerToken: String,
@@ -154,6 +167,33 @@ data class CreateAdvanceRequest(
 )
 
 @JsonClass(generateAdapter = true)
+data class CreateWeeklySettlementRequest(
+    val branch_id: Long,
+    val week_start: String,
+    val week_end: String,
+    val sales_amount: String,
+    val prizes_amount: String,
+    val cash_delivered_amount: String,
+    val notes: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class WeeklySettlementResponse(
+    val id: Long?,
+    val branch_id: Long?,
+    val week_start: String?,
+    val week_end: String?,
+    val sales_amount: String?,
+    val prizes_amount: String?,
+    val cash_delivered_amount: String?,
+    val weekly_balance: String?,
+    val balance_before: String?,
+    val balance_after: String?,
+    val notes: String? = null,
+    val status: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class CreateReversalRequest(val business_date: String, val reason: String)
 
 @JsonClass(generateAdapter = true)
@@ -199,6 +239,7 @@ data class BranchResponse(
     val status: String? = null,
     val collections: List<CollectionResponse>? = null,
     val advances: List<AdvanceResponse>? = null,
+    val weekly_settlements: List<WeeklySettlementResponse>? = null,
     val ledger: List<LedgerEntryResponse>? = null
 )
 

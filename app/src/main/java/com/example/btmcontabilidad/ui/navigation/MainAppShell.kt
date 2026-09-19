@@ -36,6 +36,7 @@ import com.example.btmcontabilidad.ui.screens.ExportScreen
 import com.example.btmcontabilidad.ui.screens.LedgerScreen
 import com.example.btmcontabilidad.ui.screens.RegisterAdvanceScreen
 import com.example.btmcontabilidad.ui.screens.RegisterCollectionScreen
+import com.example.btmcontabilidad.ui.screens.RegisterWeeklySettlementScreen
 import com.example.btmcontabilidad.ui.screens.ReportsScreen
 import com.example.btmcontabilidad.ui.theme.DeepNavy
 import com.example.btmcontabilidad.ui.theme.PrimaryBlue
@@ -138,7 +139,10 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onEdit = { branchId -> backStack.add(BranchFormRoute(branchId)) },
                         onDeleted = { backStack.removeLastOrNull() },
                         onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) },
-                        onRegisterAdvance = { branchId -> backStack.add(RegisterAdvanceRoute(branchId)) }
+                        onRegisterAdvance = { branchId -> backStack.add(RegisterAdvanceRoute(branchId)) },
+                        onRegisterWeeklySettlement = { branchId, balance ->
+                            backStack.add(RegisterWeeklySettlementRoute(branchId, balance))
+                        }
                     )
 
                     is BranchFormRoute -> BranchFormScreen(
@@ -159,6 +163,17 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                     is RegisterAdvanceRoute -> RegisterAdvanceScreen(
                         initialBranchId = route.initialBranchId,
                         onNavigateBack = { backStack.removeLastOrNull() }
+                    )
+
+                    is RegisterWeeklySettlementRoute -> RegisterWeeklySettlementScreen(
+                        branchId = route.branchId,
+                        previousBalance = route.previousBalance.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO,
+                        onNavigateBack = { backStack.removeLastOrNull() },
+                        onSaved = {
+                            backStack.removeLastOrNull()
+                            backStack.removeLastOrNull()
+                            backStack.add(BranchDetailRoute(route.branchId))
+                        }
                     )
 
                     is CollectionListRoute -> CollectionListScreen(

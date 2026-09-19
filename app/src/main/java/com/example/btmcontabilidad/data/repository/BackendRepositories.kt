@@ -14,9 +14,11 @@ import com.example.btmcontabilidad.data.network.CollectionResponse
 import com.example.btmcontabilidad.data.network.CreateAdvanceRequest
 import com.example.btmcontabilidad.data.network.CreateCollectionRequest
 import com.example.btmcontabilidad.data.network.CreateReversalRequest
+import com.example.btmcontabilidad.data.network.CreateWeeklySettlementRequest
 import com.example.btmcontabilidad.data.network.DashboardResponse
 import com.example.btmcontabilidad.data.network.LedgerEntryResponse
 import com.example.btmcontabilidad.data.network.LoginRequest
+import com.example.btmcontabilidad.data.network.WeeklySettlementResponse
 import com.example.btmcontabilidad.data.session.SessionStore
 import com.example.btmcontabilidad.data.settings.ApiSettings
 import com.example.btmcontabilidad.domain.calculator.FinancialCalculator
@@ -33,11 +35,13 @@ import com.example.btmcontabilidad.domain.model.LedgerEntry
 import com.example.btmcontabilidad.domain.model.LedgerEntryType
 import com.example.btmcontabilidad.domain.model.LedgerSourceType
 import com.example.btmcontabilidad.domain.model.PaymentMethod
+import com.example.btmcontabilidad.domain.model.WeeklySettlement
 import com.example.btmcontabilidad.domain.repository.AdvanceRepository
 import com.example.btmcontabilidad.domain.repository.BranchRepository
 import com.example.btmcontabilidad.domain.repository.CollectionRepository
 import com.example.btmcontabilidad.domain.repository.CashBoxRepository
 import com.example.btmcontabilidad.domain.repository.LedgerRepository
+import com.example.btmcontabilidad.domain.repository.WeeklySettlementRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
@@ -260,6 +264,29 @@ class BackendCashBoxRepository(private val provider: BackendApiProvider) : CashB
         ).dataOrThrow().toDomain(CashMovementType.BRANCH_TRANSFER)
 }
 
+class BackendWeeklySettlementRepository(private val provider: BackendApiProvider) : WeeklySettlementRepository {
+    override fun getForBranch(branchId: String): Flow<List<WeeklySettlement>> = remoteFlow {
+        provider.api().weeklySettlements(provider.authorization(), branchId).dataOrThrow().map { it.toDomain() }
+    }
+
+    override suspend fun add(settlement: WeeklySettlement): WeeklySettlement {
+        val branchId = settlement.branchId.toLongOrNull()
+            ?: throw BackendResponseException("El identificador de la banca no es válido")
+        return provider.api().createWeeklySettlement(
+            provider.authorization(), UUID.randomUUID().toString(),
+            CreateWeeklySettlementRequest(
+                branch_id = branchId,
+                week_start = settlement.weekStart,
+                week_end = settlement.weekEnd,
+                sales_amount = settlement.salesAmount.toPlainString(),
+                prizes_amount = settlement.prizesAmount.toPlainString(),
+                cash_delivered_amount = settlement.cashDeliveredAmount.toPlainString(),
+                notes = settlement.notes
+            )
+        ).dataOrThrow().toDomain()
+    }
+}
+
 suspend fun BackendApiProvider.dashboard(): DashboardSnapshot {
     val response = api().dashboard(authorization()).dataOrThrow()
     return DashboardSnapshot(
@@ -330,6 +357,21 @@ private fun BranchResponse.toDomain() = Branch(
     operatorName = operator_name.orEmpty(),
     currentBalance = current_balance.toAmount(),
     status = status.toEnum(BranchStatus.ACTIVE)
+)
+
+private fun WeeklySettlementResponse.toDomain() = WeeklySettlement(
+    id = id.required("id del cuadre semanal"),
+    branchId = branch_id.required("banca del cuadre semanal"),
+    weekStart = week_start.required("inicio del cuadre semanal"),
+    weekEnd = week_end.required("fin del cuadre semanal"),
+    salesAmount = sales_amount.toAmount(),
+    prizesAmount = prizes_amount.toAmount(),
+    cashDeliveredAmount = cash_delivered_amount.toAmount(),
+    weeklyBalance = weekly_balance.toAmount(),
+    balanceBefore = balance_before.toAmount(),
+    balanceAfter = balance_after.toAmount(),
+    notes = notes,
+    status = status ?: "confirmed"
 )
 
 private fun Branch.toRequest() = BranchRequest(
