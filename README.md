@@ -32,8 +32,10 @@ El APK release se genera en:
 app/build/outputs/apk/release/app-release.apk
 ```
 
-## Pendiente de producción
+## Estado de producción
 
-El cliente Android ya incluye las llamadas a `weekly-settlements`, pero el endpoint requiere que el backend ejecute la migración `2026_09_19_100000_create_weekly_settlements_table`. En el VPS esa migración está pendiente porque la cuenta de aplicación no tiene permiso `CREATE`; debe resolverse con una cuenta administrativa o permisos DDL temporales antes de usar el formulario en producción.
+El cliente Android ya incluye las llamadas a `weekly-settlements` y el backend ya tiene ejecutada la migración `2026_09_19_100000_create_weekly_settlements_table` en producción. El APK release todavía debe instalarse o distribuirse por el canal elegido.
+
+Pendientes funcionales: definir si se requiere capturar el detalle de cada número jugado y su premio individual, ya que el cuadre actual registra los totales semanales auditables.
 
 No se deben versionar APKs, tokens, contraseñas, archivos `.env`, bases SQLite ni claves privadas.
