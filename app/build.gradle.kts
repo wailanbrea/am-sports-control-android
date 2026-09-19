@@ -22,7 +22,7 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "DEFAULT_API_BASE_URL", "\"http://192.168.100.159:8000/api/v1/\"")
+            buildConfigField("String", "DEFAULT_API_BASE_URL", "\"https://amsport.api.bsolutions.dev/api/v1/\"")
         }
         release {
             buildConfigField("String", "DEFAULT_API_BASE_URL", "\"https://amsport.api.bsolutions.dev/api/v1/\"")
