@@ -22,10 +22,10 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "DEFAULT_API_BASE_URL", "\"https://amsport.api.bsolutions.dev/api/v1/\"")
+            buildConfigField("String", "DEFAULT_API_BASE_URL", "\"https://amsport.bsolutions.dev/api/v1/\"")
         }
         release {
-            buildConfigField("String", "DEFAULT_API_BASE_URL", "\"https://amsport.api.bsolutions.dev/api/v1/\"")
+            buildConfigField("String", "DEFAULT_API_BASE_URL", "\"https://amsport.bsolutions.dev/api/v1/\"")
             // Temporary QA signing so the release build can be installed for testing.
             signingConfig = signingConfigs.getByName("debug")
             optimization {
