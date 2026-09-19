@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,7 +20,9 @@ import com.example.btmcontabilidad.data.repository.BackendApiProvider
 import com.example.btmcontabilidad.data.repository.RepositoryContainer
 import com.example.btmcontabilidad.ui.navigation.MainAppShell
 import com.example.btmcontabilidad.ui.screens.LoginScreen
+import com.example.btmcontabilidad.ui.screens.StartupScreen
 import com.example.btmcontabilidad.ui.theme.BTMContabilidadTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,17 +46,25 @@ class MainActivity : ComponentActivity() {
 private fun AppRoot() {
     val context = LocalContext.current.applicationContext
     val provider = remember(context) { BackendApiProvider(context) }
+    var isStarting by remember { mutableStateOf(true) }
     var isAuthenticated by remember { mutableStateOf(provider.isAuthenticated()) }
 
-    if (isAuthenticated) {
+    LaunchedEffect(Unit) {
+        delay(900)
+        isStarting = false
+    }
+
+    when {
+        isStarting -> StartupScreen()
+        isAuthenticated -> {
         MainAppShell(
             onLogout = {
                 provider.logout()
                 isAuthenticated = false
             }
         )
-    } else {
-        LoginScreen(onLoginSuccess = { isAuthenticated = true })
+        }
+        else -> LoginScreen(onLoginSuccess = { isAuthenticated = true })
     }
 }
 
