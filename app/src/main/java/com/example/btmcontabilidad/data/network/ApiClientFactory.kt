@@ -9,7 +9,15 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 object ApiClientFactory {
     fun create(baseUrl: String): ApiService {
         val logger = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC }
-        val client = OkHttpClient.Builder().addInterceptor(logger).build()
+        val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("Accept", "application/json")
+                    .build()
+                chain.proceed(request)
+            }
+            .addInterceptor(logger)
+            .build()
         val moshi = Moshi.Builder().build()
 
         return Retrofit.Builder()
