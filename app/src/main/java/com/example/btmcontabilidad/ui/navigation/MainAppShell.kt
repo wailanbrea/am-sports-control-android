@@ -53,7 +53,7 @@ enum class BottomTab(
 }
 
 @Composable
-fun MainAppShell() {
+fun MainAppShell(onLogout: () -> Unit = {}) {
     val backStack = remember { mutableStateListOf<AppRoute>(DashboardRoute) }
     val currentRoute = backStack.lastOrNull() ?: DashboardRoute
 
@@ -180,7 +180,8 @@ fun MainAppShell() {
                         onNavigateToCollections = { backStack.add(CollectionListRoute) },
                         onNavigateToAdvances = { backStack.add(AdvanceListRoute) },
                         onNavigateToCashBox = { backStack.add(CashBoxRoute) },
-                        onNavigateToExport = { backStack.add(ExportRoute) }
+                        onNavigateToExport = { backStack.add(ExportRoute) },
+                        onLogout = onLogout
                     )
 
                     is CashBoxRoute -> CashBoxScreen(

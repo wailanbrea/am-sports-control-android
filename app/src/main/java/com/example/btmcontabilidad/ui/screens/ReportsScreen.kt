@@ -65,7 +65,8 @@ fun ReportsScreen(
     onNavigateToCollections: () -> Unit = {},
     onNavigateToAdvances: () -> Unit = {},
     onNavigateToCashBox: () -> Unit = {},
-    onNavigateToExport: () -> Unit = {}
+    onNavigateToExport: () -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -173,14 +174,14 @@ fun ReportsScreen(
             }
 
             item {
-                ApiConfigurationCard()
+                ApiConfigurationCard(onLogout = onLogout)
             }
         }
     }
 }
 
 @Composable
-private fun ApiConfigurationCard() {
+private fun ApiConfigurationCard(onLogout: () -> Unit = {}) {
     val context = LocalContext.current.applicationContext
     val settings = remember(context) { ApiSettings(context) }
     val provider = remember(context) { BackendApiProvider(context) }
@@ -244,6 +245,7 @@ private fun ApiConfigurationCard() {
                     isAuthenticated = false
                     password = ""
                     sessionMessage = "Sesión cerrada"
+                    onLogout()
                 }) {
                     Text("Cerrar sesión")
                 }
