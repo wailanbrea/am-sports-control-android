@@ -25,10 +25,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
+import com.example.btmcontabilidad.ui.screens.AdvanceListScreen
 import com.example.btmcontabilidad.ui.screens.BancasScreen
 import com.example.btmcontabilidad.ui.screens.BranchDetailScreen
 import com.example.btmcontabilidad.ui.screens.BranchFormScreen
-import com.example.btmcontabilidad.ui.screens.AdvanceListScreen
 import com.example.btmcontabilidad.ui.screens.CashBoxScreen
 import com.example.btmcontabilidad.ui.screens.CollectionListScreen
 import com.example.btmcontabilidad.ui.screens.DashboardScreen
@@ -36,10 +36,13 @@ import com.example.btmcontabilidad.ui.screens.ExportScreen
 import com.example.btmcontabilidad.ui.screens.LedgerScreen
 import com.example.btmcontabilidad.ui.screens.RegisterAdvanceScreen
 import com.example.btmcontabilidad.ui.screens.RegisterCollectionScreen
+import com.example.btmcontabilidad.ui.screens.RegisterManualResultScreen
+import com.example.btmcontabilidad.ui.screens.RegisterMoneyDeliveryScreen
 import com.example.btmcontabilidad.ui.screens.RegisterWeeklySettlementScreen
 import com.example.btmcontabilidad.ui.screens.ReportsScreen
 import com.example.btmcontabilidad.ui.theme.DeepNavy
 import com.example.btmcontabilidad.ui.theme.PrimaryBlue
+import java.math.BigDecimal
 
 enum class BottomTab(
     val label: String,
@@ -98,10 +101,10 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                             },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = PrimaryBlue,
-                                selectedTextColor = PrimaryBlue,
-                                unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.6f),
-                                indicatorColor = Color.White.copy(alpha = 0.15f)
+                                selectedTextColor = Color.White,
+                                unselectedIconColor = Color.White.copy(alpha = 0.5f),
+                                unselectedTextColor = Color.White.copy(alpha = 0.5f),
+                                indicatorColor = PrimaryBlue.copy(alpha = 0.2f)
                             )
                         )
                     }
@@ -131,9 +134,9 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onCreateBranch = { backStack.add(BranchFormRoute()) },
                         onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) },
                         onRegisterWeeklySettlement = { branchId, balance ->
-                            backStack.add(RegisterWeeklySettlementRoute(branchId, balance))
+                            backStack.add(RegisterManualResultRoute(branchId, balance))
                         },
-                        onTransferToBranch = { branchId -> backStack.add(CashBoxRoute(branchId)) }
+                        onTransferToBranch = { branchId -> backStack.add(RegisterMoneyDeliveryRoute(branchId)) }
                     )
 
                     is BranchDetailRoute -> BranchDetailScreen(
@@ -144,9 +147,17 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) },
                         onRegisterAdvance = { branchId -> backStack.add(RegisterAdvanceRoute(branchId)) },
                         onRegisterWeeklySettlement = { branchId, balance ->
-                            backStack.add(RegisterWeeklySettlementRoute(branchId, balance))
+                            backStack.add(RegisterManualResultRoute(branchId, balance))
                         },
-                        onTransferToBranch = { branchId -> backStack.add(CashBoxRoute(branchId)) }
+                        onTransferToBranch = { branchId ->
+                            backStack.add(RegisterMoneyDeliveryRoute(branchId))
+                        },
+                        onRegisterManualResult = { branchId, balance ->
+                            backStack.add(RegisterManualResultRoute(branchId, balance))
+                        },
+                        onRegisterMoneyDelivery = { branchId, suggested ->
+                            backStack.add(RegisterMoneyDeliveryRoute(branchId, suggested))
+                        }
                     )
 
                     is BranchFormRoute -> BranchFormScreen(
@@ -169,9 +180,34 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onNavigateBack = { backStack.removeLastOrNull() }
                     )
 
+                    is RegisterManualResultRoute -> RegisterManualResultScreen(
+                        branchId = route.branchId,
+                        initialBalance = route.previousBalance.toBigDecimalOrNull() ?: BigDecimal.ZERO,
+                        onNavigateBack = { backStack.removeLastOrNull() },
+                        onNavigateToMoneyDelivery = { bId, suggested, resultId ->
+                            backStack.removeLastOrNull()
+                            backStack.add(RegisterMoneyDeliveryRoute(bId, suggested, resultId))
+                        },
+                        onSaved = {
+                            backStack.removeLastOrNull()
+                            backStack.add(BranchDetailRoute(route.branchId))
+                        }
+                    )
+
+                    is RegisterMoneyDeliveryRoute -> RegisterMoneyDeliveryScreen(
+                        branchId = route.branchId,
+                        suggestedAmount = route.suggestedAmount.toBigDecimalOrNull() ?: BigDecimal.ZERO,
+                        manualResultId = route.manualResultId,
+                        onNavigateBack = { backStack.removeLastOrNull() },
+                        onSaved = {
+                            backStack.removeLastOrNull()
+                            backStack.add(BranchDetailRoute(route.branchId))
+                        }
+                    )
+
                     is RegisterWeeklySettlementRoute -> RegisterWeeklySettlementScreen(
                         branchId = route.branchId,
-                        previousBalance = route.previousBalance.toBigDecimalOrNull() ?: java.math.BigDecimal.ZERO,
+                        previousBalance = route.previousBalance.toBigDecimalOrNull() ?: BigDecimal.ZERO,
                         onNavigateBack = { backStack.removeLastOrNull() },
                         onSaved = {
                             backStack.removeLastOrNull()
@@ -200,7 +236,12 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onNavigateToAdvances = { backStack.add(AdvanceListRoute) },
                         onNavigateToCashBox = { backStack.add(CashBoxRoute()) },
                         onNavigateToExport = { backStack.add(ExportRoute) },
+                        onNavigateToCollectors = { backStack.add(CollectorsRoute) },
                         onLogout = onLogout
+                    )
+
+                    is CollectorsRoute -> com.example.btmcontabilidad.ui.screens.CollectorsScreen(
+                        onNavigateBack = { backStack.removeLastOrNull() }
                     )
 
                     is CashBoxRoute -> CashBoxScreen(
@@ -211,6 +252,7 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                     is ExportRoute -> ExportScreen(
                         onNavigateBack = { backStack.removeLastOrNull() }
                     )
+
                 }
             }
         }

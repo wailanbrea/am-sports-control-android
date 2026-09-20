@@ -22,6 +22,9 @@ class RepositoryContainer(
     val advanceRepository: AdvanceRepository = BackendAdvanceRepository(provider)
     val cashBoxRepository: CashBoxRepository = BackendCashBoxRepository(provider)
     val weeklySettlementRepository: WeeklySettlementRepository = BackendWeeklySettlementRepository(provider)
+    val manualResultRepository: ManualResultRepository = BackendManualResultRepository(provider)
+    val moneyDeliveryRepository: MoneyDeliveryRepository = BackendMoneyDeliveryRepository(provider)
+    val collectorRepository: CollectorRepository = BackendCollectorRepository(provider)
 
     suspend fun dashboard(): DashboardSnapshot = provider.dashboard()
     suspend fun registerCollection(collection: Collection, createdBy: String = "SISTEMA"): Collection =

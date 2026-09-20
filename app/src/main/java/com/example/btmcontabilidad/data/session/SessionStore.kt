@@ -3,18 +3,17 @@
 package com.example.btmcontabilidad.data.session
 
 import android.content.Context
+import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import java.io.IOException
+import java.security.GeneralSecurityException
 
 class SessionStore(context: Context) {
-    private val preferences = EncryptedSharedPreferences.create(
-        context.applicationContext,
-        "btm_session",
-        MasterKey.Builder(context.applicationContext)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build(),
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    private val appContext = context.applicationContext
+    private val preferences = recoverEncryptedPreferences(
+        create = ::createPreferences,
+        reset = { appContext.deleteSharedPreferences(PREFERENCES_NAME) }
     )
 
     fun token(): String? = preferences.getString(TOKEN, null)
@@ -27,7 +26,32 @@ class SessionStore(context: Context) {
         preferences.edit().clear().apply()
     }
 
+    private fun createPreferences(): SharedPreferences = EncryptedSharedPreferences.create(
+        appContext,
+        PREFERENCES_NAME,
+        MasterKey.Builder(appContext)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build(),
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+    )
+
     private companion object {
+        const val PREFERENCES_NAME = "btm_session"
         const val TOKEN = "access_token"
     }
+}
+
+internal fun <T> recoverEncryptedPreferences(
+    create: () -> T,
+    reset: () -> Unit
+): T = try {
+    create()
+} catch (exception: Exception) {
+    if (exception !is GeneralSecurityException && exception !is IOException) {
+        throw exception
+    }
+
+    reset()
+    create()
 }

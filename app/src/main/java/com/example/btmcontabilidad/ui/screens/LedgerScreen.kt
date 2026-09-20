@@ -57,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -269,6 +270,7 @@ fun LedgerCardItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -288,17 +290,21 @@ fun LedgerCardItem(
                         Icon(imageVector = icon, contentDescription = null, tint = tint)
                     }
 
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = entry.id,
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = "Banca: ${entry.branchId}",
                             style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -336,7 +342,9 @@ fun LedgerCardItem(
             Text(
                 text = entry.description,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
             Row(
@@ -345,9 +353,12 @@ fun LedgerCardItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "${entry.businessDate} • Creado por: ${entry.createdBy}",
+                    text = "${entry.businessDate.substringBefore('T')} • Creado por: ${entry.createdBy}",
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
 
                 val amountColor = if (entry.entryType == LedgerEntryType.CREDIT) StatusReadyContent else StatusAlertContent
@@ -355,9 +366,11 @@ fun LedgerCardItem(
 
                 Text(
                     text = "$prefix${FinancialCalculator.formatCurrency(entry.signedAmount.abs())}",
+                    modifier = Modifier.padding(start = 12.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = amountColor
+                    color = amountColor,
+                    maxLines = 1
                 )
             }
 

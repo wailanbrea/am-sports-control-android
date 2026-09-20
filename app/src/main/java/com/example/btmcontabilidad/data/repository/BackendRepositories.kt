@@ -13,11 +13,15 @@ import com.example.btmcontabilidad.data.network.CashMovementResponse
 import com.example.btmcontabilidad.data.network.CollectionResponse
 import com.example.btmcontabilidad.data.network.CreateAdvanceRequest
 import com.example.btmcontabilidad.data.network.CreateCollectionRequest
+import com.example.btmcontabilidad.data.network.CreateManualResultRequest
+import com.example.btmcontabilidad.data.network.CreateMoneyDeliveryRequest
 import com.example.btmcontabilidad.data.network.CreateReversalRequest
 import com.example.btmcontabilidad.data.network.CreateWeeklySettlementRequest
 import com.example.btmcontabilidad.data.network.DashboardResponse
 import com.example.btmcontabilidad.data.network.LedgerEntryResponse
 import com.example.btmcontabilidad.data.network.LoginRequest
+import com.example.btmcontabilidad.data.network.ManualResultResponse
+import com.example.btmcontabilidad.data.network.MoneyDeliveryResponse
 import com.example.btmcontabilidad.data.network.WeeklySettlementResponse
 import com.example.btmcontabilidad.data.session.SessionStore
 import com.example.btmcontabilidad.data.settings.ApiSettings
@@ -98,7 +102,7 @@ class BackendApiProvider(context: Context) {
         ?: throw UnauthenticatedException()
 }
 
-private suspend fun <T> Response<ApiEnvelope<T>>.dataOrThrow(): T {
+internal suspend fun <T> Response<ApiEnvelope<T>>.dataOrThrow(): T {
     if (!isSuccessful) {
         throw BackendResponseException("El servidor respondió HTTP ${code()}")
     }
@@ -110,7 +114,7 @@ private suspend fun <T> Response<ApiEnvelope<T>>.dataOrThrow(): T {
     return envelope.data
 }
 
-private suspend fun <T> Response<ApiEnvelope<T>>.successOrThrow() {
+internal suspend fun <T> Response<ApiEnvelope<T>>.successOrThrow() {
     if (!isSuccessful) {
         throw BackendResponseException("El servidor respondió HTTP ${code()}")
     }
@@ -121,7 +125,8 @@ private suspend fun <T> Response<ApiEnvelope<T>>.successOrThrow() {
     }
 }
 
-private fun <T> remoteFlow(block: suspend () -> T): Flow<T> = flow { emit(block()) }
+internal fun <T> remoteFlow(block: suspend () -> T): Flow<T> = flow { emit(block()) }
+
 
 class BackendBranchRepository(private val provider: BackendApiProvider) : BranchRepository {
     override fun getBranches(): Flow<List<Branch>> = remoteFlow {
@@ -285,6 +290,134 @@ class BackendWeeklySettlementRepository(private val provider: BackendApiProvider
                 notes = settlement.notes
             )
         ).dataOrThrow().toDomain()
+    }
+}
+
+data class ManualResultEntry(
+    val id: Long,
+    val branchId: Long,
+    val amount: BigDecimal,
+    val classification: String,
+    val businessDate: String,
+    val notes: String? = null,
+    val requiresMoneyDelivery: Boolean = false,
+    val balanceAfter: BigDecimal = BigDecimal.ZERO
+)
+
+data class MoneyDeliveryEntry(
+    val id: Long,
+    val branchId: Long,
+    val manualResultId: Long? = null,
+    val suggestedAmount: BigDecimal = BigDecimal.ZERO,
+    val deliveredAmount: BigDecimal = BigDecimal.ZERO,
+    val businessDate: String,
+    val reason: String,
+    val notes: String? = null,
+    val branchBalanceAfter: BigDecimal = BigDecimal.ZERO
+)
+
+data class MoneyDeliveriesSummary(
+    val deliveries: List<MoneyDeliveryEntry>,
+    val totalDelivered: BigDecimal
+)
+
+interface ManualResultRepository {
+    suspend fun addResult(branchId: String, amount: BigDecimal, businessDate: String, notes: String? = null): ManualResultEntry
+}
+
+interface MoneyDeliveryRepository {
+    suspend fun addDelivery(branchId: String, amount: BigDecimal, suggestedAmount: BigDecimal? = null, manualResultId: Long? = null, businessDate: String, reason: String, notes: String? = null): MoneyDeliveryEntry
+    fun getDeliveries(period: String? = null, branchId: String? = null): Flow<MoneyDeliveriesSummary>
+}
+
+class BackendManualResultRepository(private val provider: BackendApiProvider) : ManualResultRepository {
+    override suspend fun addResult(
+        branchId: String,
+        amount: BigDecimal,
+        businessDate: String,
+        notes: String?
+    ): ManualResultEntry {
+        val bId = branchId.toLongOrNull() ?: throw BackendResponseException("El identificador de la banca no es válido")
+        val response = provider.api().createResult(
+            provider.authorization(),
+            UUID.randomUUID().toString(),
+            CreateManualResultRequest(
+                branch_id = bId,
+                amount = amount.toPlainString(),
+                business_date = businessDate,
+                notes = notes
+            )
+        ).dataOrThrow()
+        return ManualResultEntry(
+            id = response.id ?: 0L,
+            branchId = response.branch_id ?: bId,
+            amount = response.amount.toAmount(),
+            classification = response.classification ?: "zero",
+            businessDate = response.business_date ?: businessDate,
+            notes = response.notes,
+            requiresMoneyDelivery = response.requires_money_delivery == true,
+            balanceAfter = response.balance_after.toAmount()
+        )
+    }
+}
+
+class BackendMoneyDeliveryRepository(private val provider: BackendApiProvider) : MoneyDeliveryRepository {
+    override suspend fun addDelivery(
+        branchId: String,
+        amount: BigDecimal,
+        suggestedAmount: BigDecimal?,
+        manualResultId: Long?,
+        businessDate: String,
+        reason: String,
+        notes: String?
+    ): MoneyDeliveryEntry {
+        val bId = branchId.toLongOrNull() ?: throw BackendResponseException("El identificador de la banca no es válido")
+        val response = provider.api().createMoneyDelivery(
+            provider.authorization(),
+            UUID.randomUUID().toString(),
+            CreateMoneyDeliveryRequest(
+                branch_id = bId,
+                amount = amount.toPlainString(),
+                suggested_amount = suggestedAmount?.toPlainString(),
+                manual_result_id = manualResultId,
+                business_date = businessDate,
+                reason = reason,
+                notes = notes
+            )
+        ).dataOrThrow()
+        return MoneyDeliveryEntry(
+            id = response.id ?: 0L,
+            branchId = response.branch_id ?: bId,
+            manualResultId = response.manual_result_id,
+            suggestedAmount = response.suggested_amount.toAmount(),
+            deliveredAmount = response.delivered_amount.toAmount(),
+            businessDate = response.business_date ?: businessDate,
+            reason = response.reason.orEmpty(),
+            notes = response.notes,
+            branchBalanceAfter = response.branch_balance_after.toAmount()
+        )
+    }
+
+    override fun getDeliveries(period: String?, branchId: String?): Flow<MoneyDeliveriesSummary> = remoteFlow {
+        val response = provider.api().moneyDeliveries(
+            provider.authorization(),
+            period,
+            branchId?.toLongOrNull()
+        ).dataOrThrow()
+        val list = response.deliveries.orEmpty().map { d ->
+            MoneyDeliveryEntry(
+                id = d.id ?: 0L,
+                branchId = d.branch_id ?: 0L,
+                manualResultId = d.manual_result_id,
+                suggestedAmount = d.suggested_amount.toAmount(),
+                deliveredAmount = d.delivered_amount.toAmount(),
+                businessDate = d.business_date.orEmpty(),
+                reason = d.reason.orEmpty(),
+                notes = d.notes,
+                branchBalanceAfter = d.branch_balance_after.toAmount()
+            )
+        }
+        MoneyDeliveriesSummary(list, response.total_delivered.toAmount())
     }
 }
 

@@ -121,6 +121,52 @@ interface ApiService {
         @Header("Idempotency-Key") idempotencyKey: String,
         @Body request: CashMovementRequest
     ): Response<ApiEnvelope<CashMovementResponse>>
+
+    @GET("results")
+    suspend fun results(
+        @Header("Authorization") bearerToken: String,
+        @Query("branch_id") branchId: Long? = null,
+        @Query("business_date") businessDate: String? = null
+    ): Response<ApiEnvelope<List<ManualResultResponse>>>
+
+    @POST("results")
+    suspend fun createResult(
+        @Header("Authorization") bearerToken: String,
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body request: CreateManualResultRequest
+    ): Response<ApiEnvelope<ManualResultResponse>>
+
+    @GET("money-deliveries")
+    suspend fun moneyDeliveries(
+        @Header("Authorization") bearerToken: String,
+        @Query("period") period: String? = null,
+        @Query("branch_id") branchId: Long? = null
+    ): Response<ApiEnvelope<MoneyDeliveryPayload>>
+
+    @POST("money-deliveries")
+    suspend fun createMoneyDelivery(
+        @Header("Authorization") bearerToken: String,
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body request: CreateMoneyDeliveryRequest
+    ): Response<ApiEnvelope<MoneyDeliveryResponse>>
+
+    @GET("collectors")
+    suspend fun collectors(
+        @Header("Authorization") bearerToken: String
+    ): Response<ApiEnvelope<List<CollectorDto>>>
+
+    @POST("collectors")
+    suspend fun createCollector(
+        @Header("Authorization") bearerToken: String,
+        @Body request: CreateCollectorRequest
+    ): Response<ApiEnvelope<CollectorDto>>
+
+    @PUT("collectors/{id}")
+    suspend fun updateCollector(
+        @Header("Authorization") bearerToken: String,
+        @Path("id") id: Long,
+        @Body request: UpdateCollectorRequest
+    ): Response<ApiEnvelope<CollectorDto>>
 }
 
 @JsonClass(generateAdapter = true)
@@ -134,6 +180,35 @@ data class LoginData(val token: String, val user: ApiUser)
 
 @JsonClass(generateAdapter = true)
 data class ApiUser(val id: Long, val name: String, val email: String)
+
+@JsonClass(generateAdapter = true)
+data class CollectorDto(
+    val id: Long,
+    val name: String,
+    val email: String,
+    val role: String,
+    val status: String,
+    val created_at: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class CreateCollectorRequest(
+    val name: String,
+    val email: String,
+    val password: String,
+    val role: String = "collector",
+    val status: String = "active"
+)
+
+@JsonClass(generateAdapter = true)
+data class UpdateCollectorRequest(
+    val name: String? = null,
+    val email: String? = null,
+    val password: String? = null,
+    val role: String? = null,
+    val status: String? = null
+)
+
 
 @JsonClass(generateAdapter = true)
 data class CreateCollectionRequest(
@@ -291,5 +366,76 @@ data class DashboardResponse(
     val collections_total: String? = null,
     val advances_total: String? = null,
     val currency_code: String? = null,
+    val active_branches_count: Int? = null,
+    val positive_branches_count: Int? = null,
+    val negative_branches_count: Int? = null,
+    val zero_branches_count: Int? = null,
+    val total_pending_to_collect: String? = null,
+    val total_to_collect_next_monday: String? = null,
+    val total_money_delivered_this_week: String? = null,
+    val total_money_delivered_this_month: String? = null,
+    val total_collected_this_week: String? = null,
+    val total_collected_this_month: String? = null,
     val recent_activity: List<LedgerEntryResponse>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class CreateManualResultRequest(
+    val branch_id: Long,
+    val amount: String,
+    val business_date: String,
+    val notes: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class ManualResultResponse(
+    val id: Long?,
+    val branch_id: Long?,
+    val amount: String?,
+    val classification: String?,
+    val business_date: String?,
+    val notes: String? = null,
+    val status: String? = null,
+    val requires_money_delivery: Boolean? = null,
+    val balance_after: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class CreateMoneyDeliveryRequest(
+    val branch_id: Long,
+    val amount: String,
+    val suggested_amount: String? = null,
+    val manual_result_id: Long? = null,
+    val business_date: String,
+    val reason: String,
+    val notes: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class MoneyDeliveryResponse(
+    val id: Long?,
+    val branch_id: Long?,
+    val manual_result_id: Long? = null,
+    val suggested_amount: String? = null,
+    val delivered_amount: String?,
+    val business_date: String?,
+    val reason: String?,
+    val notes: String? = null,
+    val status: String? = null,
+    val branch_balance_after: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class MoneyDeliveryPayload(
+    val deliveries: List<MoneyDeliveryResponse>? = null,
+    val total_delivered: String? = null,
+    val by_branch: List<MoneyDeliveryByBranchResponse>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class MoneyDeliveryByBranchResponse(
+    val branch_id: Long?,
+    val branch_name: String?,
+    val total: String?,
+    val count: Int? = null
 )

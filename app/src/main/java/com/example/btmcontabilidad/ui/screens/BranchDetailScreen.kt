@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -85,7 +86,9 @@ fun BranchDetailScreen(
     onRegisterCollection: (String) -> Unit = {},
     onRegisterAdvance: (String) -> Unit = {},
     onRegisterWeeklySettlement: (String, String) -> Unit = { _, _ -> },
-    onTransferToBranch: (String) -> Unit = {}
+    onTransferToBranch: (String) -> Unit = {},
+    onRegisterManualResult: (String, String) -> Unit = { _, _ -> },
+    onRegisterMoneyDelivery: (String, String) -> Unit = { _, _ -> }
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -178,7 +181,9 @@ fun BranchDetailScreen(
                         onRegisterCollection = { onRegisterCollection(branch.id) },
                         onRegisterAdvance = { onRegisterAdvance(branch.id) },
                         onRegisterWeeklySettlement = { onRegisterWeeklySettlement(branch.id, branch.currentBalance.toPlainString()) },
-                        onTransferToBranch = { onTransferToBranch(branch.id) }
+                        onTransferToBranch = { onTransferToBranch(branch.id) },
+                        onRegisterManualResult = { onRegisterManualResult(branch.id, branch.currentBalance.toPlainString()) },
+                        onRegisterMoneyDelivery = { onRegisterMoneyDelivery(branch.id, branch.currentBalance.abs().toPlainString()) }
                     )
                 }
 
@@ -275,7 +280,9 @@ fun BranchDetailHeaderCard(
     onRegisterCollection: () -> Unit,
     onRegisterAdvance: () -> Unit,
     onRegisterWeeklySettlement: () -> Unit,
-    onTransferToBranch: () -> Unit
+    onTransferToBranch: () -> Unit,
+    onRegisterManualResult: () -> Unit = {},
+    onRegisterMoneyDelivery: () -> Unit = {}
 ) {
     val roundedBalance = FinancialCalculator.roundMoney(branch.currentBalance)
 
@@ -298,47 +305,47 @@ fun BranchDetailHeaderCard(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.White.copy(alpha = 0.2f)
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(PrimaryBlue.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = branch.code,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
+                            text = branch.code.take(2).uppercase(),
+                            color = PrimaryBlue,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            style = MaterialTheme.typography.titleMedium
                         )
                     }
 
                     Column {
                         Text(
                             text = branch.name,
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
                         Text(
-                            text = "Operador: ${branch.operatorName}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.8f)
+                            text = "Código: ${branch.code}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.7f)
                         )
                     }
                 }
 
-                // Description if available
-                if (!branch.description.isNullOrBlank()) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.15f)
-                    ) {
-                        Text(
-                            text = branch.description,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (branch.status.name.equals("ACTIVE", ignoreCase = true)) StatusReadyBg else StatusNeutralBg
+                ) {
+                    Text(
+                        text = if (branch.status.name.equals("ACTIVE", ignoreCase = true)) "Activa" else "Inactiva",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (branch.status.name.equals("ACTIVE", ignoreCase = true)) StatusReadyContent else StatusNeutralContent,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
                 }
             }
 
@@ -347,7 +354,7 @@ fun BranchDetailHeaderCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "BALANCE ACTUAL EN RUTA",
+                    text = "BALANCE ACTUAL DE CUENTA CORRIENTE",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = 0.7f),
                     fontWeight = FontWeight.Bold
@@ -361,9 +368,9 @@ fun BranchDetailHeaderCard(
                 )
 
                 val (bg, fg, label) = when {
-                    roundedBalance > BigDecimal.ZERO -> Triple(StatusPendingBg, StatusPendingContent, "Por recoger")
-                    roundedBalance < BigDecimal.ZERO -> Triple(StatusReadyBg, StatusReadyContent, "A favor de la banca")
-                    else -> Triple(StatusNeutralBg, StatusNeutralContent, "Cuenta al día")
+                    roundedBalance > BigDecimal.ZERO -> Triple(StatusPendingBg, StatusPendingContent, "🟢 Por recoger (Lunes)")
+                    roundedBalance < BigDecimal.ZERO -> Triple(StatusAlertBg, StatusAlertContent, "🔴 Requiere dinero (Déficit)")
+                    else -> Triple(StatusNeutralBg, StatusNeutralContent, "⚪ Cuenta al día")
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
@@ -381,7 +388,18 @@ fun BranchDetailHeaderCard(
                 }
             }
 
-            // Action Buttons
+            // Primary Action: Registrar Resultado Manual
+            Button(
+                onClick = onRegisterManualResult,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                Text("Registrar Resultado Manual", fontWeight = FontWeight.Bold)
+            }
+
+            // Quick actions row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -390,18 +408,18 @@ fun BranchDetailHeaderCard(
                     onClick = onRegisterCollection,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue.copy(alpha = 0.85f))
                 ) {
                     Icon(
                         imageVector = Icons.Default.Payments,
                         contentDescription = null,
                         modifier = Modifier.padding(end = 4.dp)
                     )
-                    Text("Registrar Cobro", fontWeight = FontWeight.Bold)
+                    Text("Cobro", fontWeight = FontWeight.Bold)
                 }
 
                 OutlinedButton(
-                    onClick = onRegisterAdvance,
+                    onClick = onRegisterMoneyDelivery,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
@@ -411,26 +429,16 @@ fun BranchDetailHeaderCard(
                         contentDescription = null,
                         modifier = Modifier.padding(end = 4.dp)
                     )
-                    Text("Adelanto", fontWeight = FontWeight.Bold)
+                    Text("Dinero Llevado", fontWeight = FontWeight.Bold)
                 }
-            }
-
-            OutlinedButton(
-                onClick = onRegisterWeeklySettlement,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-            ) {
-                Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                Text("Registrar cuadre semanal", fontWeight = FontWeight.Bold)
             }
 
             if (roundedBalance < BigDecimal.ZERO) {
                 Button(
-                    onClick = onTransferToBranch,
+                    onClick = onRegisterMoneyDelivery,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = StatusAlertContent)
                 ) {
                     Icon(Icons.Default.LocalAtm, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
                     Text("Entregar dinero a la banca", fontWeight = FontWeight.Bold)
@@ -483,6 +491,7 @@ fun StatementEntryCard(entry: LedgerEntry) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
+                modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -502,16 +511,20 @@ fun StatementEntryCard(entry: LedgerEntry) {
                     Icon(imageVector = icon, contentDescription = null, tint = tint)
                 }
 
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = entry.description,
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${entry.businessDate} • Balance previo: ${FinancialCalculator.formatCurrency(entry.balanceBefore)} → Nuevo: ${FinancialCalculator.formatCurrency(entry.balanceAfter)}",
+                        text = "${entry.businessDate.substringBefore('T')} • Balance previo: ${FinancialCalculator.formatCurrency(entry.balanceBefore)} → Nuevo: ${FinancialCalculator.formatCurrency(entry.balanceAfter)}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -521,9 +534,11 @@ fun StatementEntryCard(entry: LedgerEntry) {
 
             Text(
                 text = "$prefix${FinancialCalculator.formatCurrency(entry.signedAmount.abs())}",
+                modifier = Modifier.padding(start = 10.dp),
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                color = amountColor
+                color = amountColor,
+                maxLines = 1
             )
         }
     }

@@ -66,8 +66,10 @@ fun ReportsScreen(
     onNavigateToAdvances: () -> Unit = {},
     onNavigateToCashBox: () -> Unit = {},
     onNavigateToExport: () -> Unit = {},
+    onNavigateToCollectors: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -143,6 +145,15 @@ fun ReportsScreen(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = PrimaryBlue
+                )
+            }
+
+            item {
+                ReportMenuItemCard(
+                    title = "Gestión de Cobradores",
+                    subtitle = "Crear y administrar cobradores y accesos al consorcio",
+                    icon = Icons.Default.Settings,
+                    onClick = onNavigateToCollectors
                 )
             }
 
