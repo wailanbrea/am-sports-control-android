@@ -75,7 +75,8 @@ fun BancasScreen(
     onBranchSelected: (String) -> Unit = {},
     onCreateBranch: () -> Unit = {},
     onRegisterCollection: (String) -> Unit = {},
-    onRegisterAdvance: (String) -> Unit = {}
+    onRegisterWeeklySettlement: (String, String) -> Unit = { _, _ -> },
+    onTransferToBranch: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -177,7 +178,10 @@ fun BancasScreen(
                         branch = branch,
                         onClick = { onBranchSelected(branch.id) },
                         onRegisterCollection = { onRegisterCollection(branch.id) },
-                        onRegisterAdvance = { onRegisterAdvance(branch.id) }
+                        onRegisterWeeklySettlement = {
+                            onRegisterWeeklySettlement(branch.id, branch.currentBalance.toPlainString())
+                        },
+                        onTransferToBranch = { onTransferToBranch(branch.id) }
                     )
                 }
 
@@ -266,7 +270,8 @@ fun BranchListItemCard(
     branch: Branch,
     onClick: () -> Unit,
     onRegisterCollection: () -> Unit,
-    onRegisterAdvance: () -> Unit
+    onRegisterWeeklySettlement: () -> Unit,
+    onTransferToBranch: () -> Unit
 ) {
     val roundedBalance = FinancialCalculator.roundMoney(branch.currentBalance)
 
@@ -386,7 +391,7 @@ fun BranchListItemCard(
                 }
 
                 OutlinedButton(
-                    onClick = onRegisterAdvance,
+                    onClick = onRegisterWeeklySettlement,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp)
                 ) {
@@ -395,7 +400,18 @@ fun BranchListItemCard(
                         contentDescription = null,
                         modifier = Modifier.padding(end = 4.dp)
                     )
-                    Text("Adelanto", fontWeight = FontWeight.SemiBold)
+                    Text("Cuadre", fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            if (roundedBalance < BigDecimal.ZERO) {
+                OutlinedButton(
+                    onClick = onTransferToBranch,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.LocalAtm, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                    Text("Entregar dinero a banca", fontWeight = FontWeight.SemiBold)
                 }
             }
         }

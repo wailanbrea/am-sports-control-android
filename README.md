@@ -20,6 +20,8 @@ https://amsport.bsolutions.dev/api/v1/
 - Comisión editable con `20%` predeterminado y cálculo automático del monto.
 - Cálculo en vivo de `ventas - premios - comisión + efectivo entregado`.
 - Historial de cuadres con saldo anterior, balance semanal y saldo posterior.
+- Los abonos parciales mantienen automáticamente el saldo pendiente.
+- Las bancas con saldo negativo muestran una acción directa para entregar dinero y compensar su balance.
 
 ## Verificación local
 

@@ -129,6 +129,17 @@ fun RegisterWeeklySettlementScreen(
                         Text("Comisión (${state.commissionRateInput.ifBlank { "0" }}%): ${FinancialCalculator.formatCurrency(state.commissionAmount)}")
                         Text("Balance semanal: ${FinancialCalculator.formatCurrency(state.weeklyBalance)}")
                         Text("Saldo después del cuadre: ${FinancialCalculator.formatCurrency(state.projectedBalance)}", fontWeight = FontWeight.Bold)
+                        Text(
+                            when {
+                                state.projectedBalance > BigDecimal.ZERO ->
+                                    "Monto por recoger: ${FinancialCalculator.formatCurrency(state.projectedBalance)}"
+                                state.projectedBalance < BigDecimal.ZERO ->
+                                    "Monto a favor de la banca: ${FinancialCalculator.formatCurrency(state.projectedBalance.abs())}"
+                                else -> "Cuenta saldada"
+                            },
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }

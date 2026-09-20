@@ -32,7 +32,7 @@ data object LedgerRoute : AppRoute
 data object ReportsRoute : AppRoute
 
 @Serializable
-data object CashBoxRoute : AppRoute
+data class CashBoxRoute(val initialBranchId: String? = null) : AppRoute
 
 @Serializable
 data object ExportRoute : AppRoute

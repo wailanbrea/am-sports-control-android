@@ -84,7 +84,8 @@ fun BranchDetailScreen(
     onDeleted: () -> Unit = {},
     onRegisterCollection: (String) -> Unit = {},
     onRegisterAdvance: (String) -> Unit = {},
-    onRegisterWeeklySettlement: (String, String) -> Unit = { _, _ -> }
+    onRegisterWeeklySettlement: (String, String) -> Unit = { _, _ -> },
+    onTransferToBranch: (String) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteConfirmation by remember { mutableStateOf(false) }
@@ -176,7 +177,8 @@ fun BranchDetailScreen(
                         branch = branch,
                         onRegisterCollection = { onRegisterCollection(branch.id) },
                         onRegisterAdvance = { onRegisterAdvance(branch.id) },
-                        onRegisterWeeklySettlement = { onRegisterWeeklySettlement(branch.id, branch.currentBalance.toPlainString()) }
+                        onRegisterWeeklySettlement = { onRegisterWeeklySettlement(branch.id, branch.currentBalance.toPlainString()) },
+                        onTransferToBranch = { onTransferToBranch(branch.id) }
                     )
                 }
 
@@ -272,7 +274,8 @@ fun BranchDetailHeaderCard(
     branch: Branch,
     onRegisterCollection: () -> Unit,
     onRegisterAdvance: () -> Unit,
-    onRegisterWeeklySettlement: () -> Unit
+    onRegisterWeeklySettlement: () -> Unit,
+    onTransferToBranch: () -> Unit
 ) {
     val roundedBalance = FinancialCalculator.roundMoney(branch.currentBalance)
 
@@ -421,6 +424,18 @@ fun BranchDetailHeaderCard(
                 Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
                 Text("Registrar cuadre semanal", fontWeight = FontWeight.Bold)
             }
+
+            if (roundedBalance < BigDecimal.ZERO) {
+                Button(
+                    onClick = onTransferToBranch,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                ) {
+                    Icon(Icons.Default.LocalAtm, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                    Text("Entregar dinero a la banca", fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }
@@ -435,6 +450,19 @@ fun WeeklySettlementCard(settlement: WeeklySettlement) {
             Text("Entregado ${FinancialCalculator.formatCurrency(settlement.cashDeliveredAmount)}")
             Text("Balance semanal: ${FinancialCalculator.formatCurrency(settlement.weeklyBalance)}", fontWeight = FontWeight.Bold)
             Text("Saldo: ${FinancialCalculator.formatCurrency(settlement.balanceBefore)} → ${FinancialCalculator.formatCurrency(settlement.balanceAfter)}", style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = when (settlement.status) {
+                    "partially_paid" -> "Estado: pago parcial"
+                    "paid" -> "Estado: pagado"
+                    "negative_balance" -> "Estado: balance negativo"
+                    "compensated" -> "Estado: compensado"
+                    "settled" -> "Estado: saldado"
+                    else -> "Estado: pendiente"
+                },
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

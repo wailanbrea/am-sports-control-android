@@ -84,6 +84,17 @@ class CashBoxViewModel(
         _uiState.update { it.copy(selectedBranchId = branchId, errorMessage = null) }
     }
 
+    fun prepareBranchTransfer(branchId: String) {
+        _uiState.update {
+            it.copy(
+                selectedType = CashMovementType.BRANCH_TRANSFER,
+                selectedBranchId = branchId,
+                reasonInput = "Entrega para compensar balance negativo",
+                errorMessage = null
+            )
+        }
+    }
+
     fun updateAmount(value: String) {
         _uiState.update { it.copy(amountInput = value, errorMessage = null) }
     }

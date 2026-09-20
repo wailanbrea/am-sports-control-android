@@ -130,7 +130,10 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onBranchSelected = { branchId -> backStack.add(BranchDetailRoute(branchId)) },
                         onCreateBranch = { backStack.add(BranchFormRoute()) },
                         onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) },
-                        onRegisterAdvance = { branchId -> backStack.add(RegisterAdvanceRoute(branchId)) }
+                        onRegisterWeeklySettlement = { branchId, balance ->
+                            backStack.add(RegisterWeeklySettlementRoute(branchId, balance))
+                        },
+                        onTransferToBranch = { branchId -> backStack.add(CashBoxRoute(branchId)) }
                     )
 
                     is BranchDetailRoute -> BranchDetailScreen(
@@ -142,7 +145,8 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onRegisterAdvance = { branchId -> backStack.add(RegisterAdvanceRoute(branchId)) },
                         onRegisterWeeklySettlement = { branchId, balance ->
                             backStack.add(RegisterWeeklySettlementRoute(branchId, balance))
-                        }
+                        },
+                        onTransferToBranch = { branchId -> backStack.add(CashBoxRoute(branchId)) }
                     )
 
                     is BranchFormRoute -> BranchFormScreen(
@@ -194,12 +198,13 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onNavigateToBancas = { backStack.add(BancasRoute) },
                         onNavigateToCollections = { backStack.add(CollectionListRoute) },
                         onNavigateToAdvances = { backStack.add(AdvanceListRoute) },
-                        onNavigateToCashBox = { backStack.add(CashBoxRoute) },
+                        onNavigateToCashBox = { backStack.add(CashBoxRoute()) },
                         onNavigateToExport = { backStack.add(ExportRoute) },
                         onLogout = onLogout
                     )
 
                     is CashBoxRoute -> CashBoxScreen(
+                        initialBranchId = route.initialBranchId,
                         onNavigateBack = { backStack.removeLastOrNull() }
                     )
 

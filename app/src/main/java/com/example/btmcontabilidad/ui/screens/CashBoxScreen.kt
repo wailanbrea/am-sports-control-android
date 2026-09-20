@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,12 +70,17 @@ import com.example.btmcontabilidad.ui.viewmodel.CashBoxViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CashBoxScreen(
+    initialBranchId: String? = null,
     viewModel: CashBoxViewModel = viewModel(),
     onNavigateBack: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var branchMenuExpanded by remember { mutableStateOf(false) }
     val selectedBranch = uiState.availableBranches.find { it.id == uiState.selectedBranchId }
+
+    LaunchedEffect(initialBranchId) {
+        initialBranchId?.let(viewModel::prepareBranchTransfer)
+    }
 
     Scaffold(
         topBar = {
