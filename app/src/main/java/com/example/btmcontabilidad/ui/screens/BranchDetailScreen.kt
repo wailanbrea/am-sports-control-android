@@ -431,6 +431,7 @@ fun WeeklySettlementCard(settlement: WeeklySettlement) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text("${settlement.weekStart} al ${settlement.weekEnd}", fontWeight = FontWeight.Bold)
             Text("Ventas ${FinancialCalculator.formatCurrency(settlement.salesAmount)} · Premios ${FinancialCalculator.formatCurrency(settlement.prizesAmount)}")
+            Text("Comisión ${settlement.commissionRate}%: ${FinancialCalculator.formatCurrency(settlement.commissionAmount)}")
             Text("Entregado ${FinancialCalculator.formatCurrency(settlement.cashDeliveredAmount)}")
             Text("Balance semanal: ${FinancialCalculator.formatCurrency(settlement.weeklyBalance)}", fontWeight = FontWeight.Bold)
             Text("Saldo: ${FinancialCalculator.formatCurrency(settlement.balanceBefore)} → ${FinancialCalculator.formatCurrency(settlement.balanceAfter)}", style = MaterialTheme.typography.bodySmall)

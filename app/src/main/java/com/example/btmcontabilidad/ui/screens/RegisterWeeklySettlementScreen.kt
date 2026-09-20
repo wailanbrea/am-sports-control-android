@@ -82,7 +82,7 @@ fun RegisterWeeklySettlementScreen(
         ) {
             item {
                 Text(
-                    "Registre la semana completa. El saldo semanal se calcula como ventas - premios + efectivo entregado.",
+                    "Registre la semana completa. El saldo se calcula como ventas - premios - comisión + efectivo entregado.",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
@@ -90,6 +90,7 @@ fun RegisterWeeklySettlementScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     MoneyField("Ventas semanales", state.salesInput, viewModel::updateSales)
                     MoneyField("Premios pagados", state.prizesInput, viewModel::updatePrizes)
+                    MoneyField("Comisión (%)", state.commissionRateInput, viewModel::updateCommissionRate)
                     MoneyField("Efectivo entregado a la banca", state.cashDeliveredInput, viewModel::updateCashDelivered)
                 }
             }
@@ -125,6 +126,7 @@ fun RegisterWeeklySettlementScreen(
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Resumen contable", fontWeight = FontWeight.Bold)
                         Text("Saldo anterior: ${FinancialCalculator.formatCurrency(state.previousBalance)}")
+                        Text("Comisión (${state.commissionRateInput.ifBlank { "0" }}%): ${FinancialCalculator.formatCurrency(state.commissionAmount)}")
                         Text("Balance semanal: ${FinancialCalculator.formatCurrency(state.weeklyBalance)}")
                         Text("Saldo después del cuadre: ${FinancialCalculator.formatCurrency(state.projectedBalance)}", fontWeight = FontWeight.Bold)
                     }

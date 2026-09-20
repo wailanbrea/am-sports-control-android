@@ -17,7 +17,8 @@ https://amsport.bsolutions.dev/api/v1/
 - Registro de cobros y adelantos.
 - Consulta de libro mayor y caja chica.
 - Nuevo formulario de cuadre semanal desde el detalle de cada banca.
-- Cálculo en vivo de `ventas - premios + efectivo entregado`.
+- Comisión editable con `20%` predeterminado y cálculo automático del monto.
+- Cálculo en vivo de `ventas - premios - comisión + efectivo entregado`.
 - Historial de cuadres con saldo anterior, balance semanal y saldo posterior.
 
 ## Verificación local

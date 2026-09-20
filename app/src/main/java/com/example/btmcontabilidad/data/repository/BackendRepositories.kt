@@ -280,6 +280,7 @@ class BackendWeeklySettlementRepository(private val provider: BackendApiProvider
                 week_end = settlement.weekEnd,
                 sales_amount = settlement.salesAmount.toPlainString(),
                 prizes_amount = settlement.prizesAmount.toPlainString(),
+                commission_rate = settlement.commissionRate.toPlainString(),
                 cash_delivered_amount = settlement.cashDeliveredAmount.toPlainString(),
                 notes = settlement.notes
             )
@@ -366,6 +367,8 @@ private fun WeeklySettlementResponse.toDomain() = WeeklySettlement(
     weekEnd = week_end.required("fin del cuadre semanal"),
     salesAmount = sales_amount.toAmount(),
     prizesAmount = prizes_amount.toAmount(),
+    commissionRate = commission_rate.toAmount(),
+    commissionAmount = commission_amount.toAmount(),
     cashDeliveredAmount = cash_delivered_amount.toAmount(),
     weeklyBalance = weekly_balance.toAmount(),
     balanceBefore = balance_before.toAmount(),

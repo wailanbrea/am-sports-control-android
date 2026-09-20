@@ -15,6 +15,10 @@ data class WeeklySettlement(
     @Serializable(with = BigDecimalSerializer::class)
     val prizesAmount: BigDecimal,
     @Serializable(with = BigDecimalSerializer::class)
+    val commissionRate: BigDecimal,
+    @Serializable(with = BigDecimalSerializer::class)
+    val commissionAmount: BigDecimal,
+    @Serializable(with = BigDecimalSerializer::class)
     val cashDeliveredAmount: BigDecimal,
     @Serializable(with = BigDecimalSerializer::class)
     val weeklyBalance: BigDecimal,
