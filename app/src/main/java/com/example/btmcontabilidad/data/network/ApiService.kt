@@ -310,6 +310,9 @@ data class BranchResponse(
     val id: Long?,
     val code: String?,
     val name: String?,
+    val phone: String? = null,
+    val owner_name: String? = null,
+    val owner_phone: String? = null,
     val description: String? = null,
     val route: String? = null,
     val operator_name: String? = null,
@@ -325,11 +328,15 @@ data class BranchResponse(
 data class BranchRequest(
     val code: String,
     val name: String,
+    val phone: String? = null,
+    val owner_name: String? = null,
+    val owner_phone: String? = null,
     val description: String? = null,
-    val route: String,
-    val operator_name: String,
-    val status: String
+    val route: String? = null,
+    val operator_name: String? = null,
+    val status: String = "active"
 )
+
 
 @JsonClass(generateAdapter = true)
 data class AdvanceResponse(

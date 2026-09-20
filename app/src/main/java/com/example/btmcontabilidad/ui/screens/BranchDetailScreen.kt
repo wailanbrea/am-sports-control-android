@@ -349,10 +349,41 @@ fun BranchDetailHeaderCard(
                 }
             }
 
+            // Contact & Owner Details
+            if (!branch.phone.isNullOrBlank() || !branch.ownerName.isNullOrBlank() || !branch.ownerPhone.isNullOrBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.White.copy(alpha = 0.08f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (!branch.phone.isNullOrBlank()) {
+                            Text(
+                                text = "📞 Tel. Banca: ${branch.phone}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                        }
+                        if (!branch.ownerName.isNullOrBlank()) {
+                            Text(
+                                text = "👤 Dueño: ${branch.ownerName}${if (!branch.ownerPhone.isNullOrBlank()) " (${branch.ownerPhone})" else ""}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+
             // Balance Section
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
+
                 Text(
                     text = "BALANCE ACTUAL DE CUENTA CORRIENTE",
                     style = MaterialTheme.typography.labelSmall,

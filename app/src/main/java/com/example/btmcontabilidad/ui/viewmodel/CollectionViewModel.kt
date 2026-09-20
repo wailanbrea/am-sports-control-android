@@ -60,8 +60,11 @@ class CollectionViewModel(
                 val branches = repositoryContainer.branchRepository.getBranches().firstOrNull() ?: emptyList()
                 val activeBranches = branches.filter { it.status == BranchStatus.ACTIVE }
 
-                val defaultBranch = if (!preselectedBranchId.isNullBraking()) {
+                val currentSelectedId = _uiState.value.selectedBranchId
+                val defaultBranch = if (!preselectedBranchId.isNullOrBlank()) {
                     activeBranches.find { it.id == preselectedBranchId } ?: activeBranches.firstOrNull()
+                } else if (currentSelectedId.isNotBlank()) {
+                    activeBranches.find { it.id == currentSelectedId } ?: activeBranches.firstOrNull()
                 } else {
                     activeBranches.firstOrNull()
                 }
@@ -86,8 +89,6 @@ class CollectionViewModel(
             }
         }
     }
-
-    private fun String?.isNullBraking(): Boolean = this == null || this.isBlank()
 
     fun selectBranch(branchId: String) {
         val branch = _uiState.value.availableBranches.find { it.id == branchId }

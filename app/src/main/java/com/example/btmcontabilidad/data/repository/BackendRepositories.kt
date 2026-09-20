@@ -489,6 +489,9 @@ private fun BranchResponse.toDomain() = Branch(
     description = description,
     route = route.orEmpty(),
     operatorName = operator_name.orEmpty(),
+    phone = phone,
+    ownerName = owner_name,
+    ownerPhone = owner_phone,
     currentBalance = current_balance.toAmount(),
     status = status.toEnum(BranchStatus.ACTIVE)
 )
@@ -513,11 +516,15 @@ private fun WeeklySettlementResponse.toDomain() = WeeklySettlement(
 private fun Branch.toRequest() = BranchRequest(
     code = code.trim(),
     name = name.trim(),
+    phone = phone?.trim()?.takeIf { it.isNotEmpty() },
+    owner_name = ownerName?.trim()?.takeIf { it.isNotEmpty() },
+    owner_phone = ownerPhone?.trim()?.takeIf { it.isNotEmpty() },
     description = description?.trim()?.takeIf { it.isNotEmpty() },
-    route = route.trim(),
-    operator_name = operatorName.trim(),
+    route = route.trim().ifEmpty { "General" },
+    operator_name = operatorName.trim().ifEmpty { "General" },
     status = status.name.lowercase()
 )
+
 
 private fun CollectionResponse.toDomain() = Collection(
     id = id.required("id de cobro"),

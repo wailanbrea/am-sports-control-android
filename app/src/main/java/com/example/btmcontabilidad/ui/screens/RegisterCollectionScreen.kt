@@ -83,10 +83,9 @@ fun RegisterCollectionScreen(
     var expandedDropdown by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialBranchId) {
-        if (!initialBranchId.isNullOrBlank()) {
-            viewModel.loadBranches(initialBranchId)
-        }
+        viewModel.loadBranches(initialBranchId)
     }
+
 
     LaunchedEffect(uiState.errorMessage, uiState.successMessage) {
         uiState.errorMessage?.let {
@@ -145,7 +144,7 @@ fun RegisterCollectionScreen(
                         onExpandedChange = { expandedDropdown = !expandedDropdown }
                     ) {
                         OutlinedTextField(
-                            value = uiState.selectedBranch?.let { "${it.code} — ${it.name} (${it.operatorName})" } ?: "Seleccionar Banca",
+                            value = uiState.selectedBranch?.let { "${it.code} — ${it.name}${if (!it.operatorName.isNullOrBlank()) " (${it.operatorName})" else ""}" } ?: "Seleccionar Banca",
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Banca Receptora") },
@@ -162,7 +161,7 @@ fun RegisterCollectionScreen(
                         ) {
                             uiState.availableBranches.forEach { branch ->
                                 DropdownMenuItem(
-                                    text = { Text("${branch.code} — ${branch.name} (${branch.operatorName})") },
+                                    text = { Text("${branch.code} — ${branch.name}${if (!branch.operatorName.isNullOrBlank()) " (${branch.operatorName})" else ""}") },
                                     onClick = {
                                         viewModel.selectBranch(branch.id)
                                         expandedDropdown = false

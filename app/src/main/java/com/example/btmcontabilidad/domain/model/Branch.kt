@@ -13,10 +13,14 @@ data class Branch(
     val description: String? = null,
     val route: String,
     val operatorName: String,
+    val phone: String? = null,
+    val ownerName: String? = null,
+    val ownerPhone: String? = null,
     @Serializable(with = BigDecimalSerializer::class)
     val currentBalance: BigDecimal = BigDecimal.ZERO,
     val status: BranchStatus = BranchStatus.ACTIVE
 ) {
+
     val balanceState: BalanceState
         get() = FinancialCalculator.determineBalanceState(currentBalance)
 }

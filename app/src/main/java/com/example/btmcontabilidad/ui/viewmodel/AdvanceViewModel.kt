@@ -57,8 +57,11 @@ class AdvanceViewModel(
                 val branches = repositoryContainer.branchRepository.getBranches().firstOrNull() ?: emptyList()
                 val activeBranches = branches.filter { it.status == BranchStatus.ACTIVE }
 
+                val currentSelectedId = _uiState.value.selectedBranchId
                 val defaultBranch = if (!preselectedBranchId.isNullOrBlank()) {
                     activeBranches.find { it.id == preselectedBranchId } ?: activeBranches.firstOrNull()
+                } else if (currentSelectedId.isNotBlank()) {
+                    activeBranches.find { it.id == currentSelectedId } ?: activeBranches.firstOrNull()
                 } else {
                     activeBranches.firstOrNull()
                 }

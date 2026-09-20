@@ -19,6 +19,9 @@ data class BranchFormUiState(
     val savedBranchId: String? = null,
     val code: String = "",
     val name: String = "",
+    val phone: String = "",
+    val ownerName: String = "",
+    val ownerPhone: String = "",
     val description: String = "",
     val route: String = "",
     val operatorName: String = "",
@@ -40,6 +43,9 @@ class BranchFormViewModel(
                 _uiState.value = BranchFormUiState(
                     code = branch.code,
                     name = branch.name,
+                    phone = branch.phone.orEmpty(),
+                    ownerName = branch.ownerName.orEmpty(),
+                    ownerPhone = branch.ownerPhone.orEmpty(),
                     description = branch.description.orEmpty(),
                     route = branch.route,
                     operatorName = branch.operatorName,
@@ -55,6 +61,9 @@ class BranchFormViewModel(
 
     fun updateCode(value: String) = update { copy(code = value) }
     fun updateName(value: String) = update { copy(name = value) }
+    fun updatePhone(value: String) = update { copy(phone = value) }
+    fun updateOwnerName(value: String) = update { copy(ownerName = value) }
+    fun updateOwnerPhone(value: String) = update { copy(ownerPhone = value) }
     fun updateDescription(value: String) = update { copy(description = value) }
     fun updateRoute(value: String) = update { copy(route = value) }
     fun updateOperatorName(value: String) = update { copy(operatorName = value) }
@@ -65,8 +74,6 @@ class BranchFormViewModel(
         val validationError = when {
             state.code.isBlank() -> "El código es obligatorio"
             state.name.isBlank() -> "El nombre es obligatorio"
-            state.route.isBlank() -> "La ruta es obligatoria"
-            state.operatorName.isBlank() -> "El operador es obligatorio"
             else -> null
         }
         if (validationError != null) {
@@ -81,9 +88,12 @@ class BranchFormViewModel(
                     id = branchId.orEmpty(),
                     code = state.code,
                     name = state.name,
+                    phone = state.phone.ifBlank { null },
+                    ownerName = state.ownerName.ifBlank { null },
+                    ownerPhone = state.ownerPhone.ifBlank { null },
                     description = state.description,
-                    route = state.route,
-                    operatorName = state.operatorName,
+                    route = state.route.ifBlank { "General" },
+                    operatorName = state.operatorName.ifBlank { state.name },
                     status = state.status
                 )
                 val saved = if (branchId == null) {
@@ -99,6 +109,7 @@ class BranchFormViewModel(
             }
         }
     }
+
 
     private fun update(transform: BranchFormUiState.() -> BranchFormUiState) {
         _uiState.update { it.transform().copy(errorMessage = null) }

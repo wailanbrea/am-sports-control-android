@@ -84,9 +84,21 @@ fun BranchFormScreen(
                 }
                 item { BranchTextField(uiState.code, viewModel::updateCode, "Código", "Ej. B-001", !uiState.isSaving) }
                 item { BranchTextField(uiState.name, viewModel::updateName, "Nombre", "Nombre de la banca", !uiState.isSaving) }
-                item { BranchTextField(uiState.description, viewModel::updateDescription, "Descripción (opcional)", "Descripción breve", !uiState.isSaving, minLines = 2) }
-                item { BranchTextField(uiState.route, viewModel::updateRoute, "Ruta", "Ruta asignada", !uiState.isSaving) }
-                item { BranchTextField(uiState.operatorName, viewModel::updateOperatorName, "Operador", "Nombre del operador", !uiState.isSaving) }
+                item { BranchTextField(uiState.phone, viewModel::updatePhone, "Teléfono de la banca (opcional)", "Ej. 809-555-0101", !uiState.isSaving) }
+                item {
+                    Text(
+                        "Datos del dueño / encargado",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                item { BranchTextField(uiState.ownerName, viewModel::updateOwnerName, "Nombre del dueño (opcional)", "Ej. Juan Pérez", !uiState.isSaving) }
+                item { BranchTextField(uiState.ownerPhone, viewModel::updateOwnerPhone, "Teléfono / WhatsApp del dueño (opcional)", "Ej. 809-555-0102", !uiState.isSaving) }
+                item { BranchTextField(uiState.operatorName, viewModel::updateOperatorName, "Encargado / Operador (opcional)", "Nombre del operador", !uiState.isSaving) }
+                item { BranchTextField(uiState.route, viewModel::updateRoute, "Ruta (opcional)", "Ej. Ruta Norte", !uiState.isSaving) }
+                item { BranchTextField(uiState.description, viewModel::updateDescription, "Descripción / Dirección (opcional)", "Ubicación o notas", !uiState.isSaving, minLines = 2) }
+
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("Estado", style = MaterialTheme.typography.labelLarge)
