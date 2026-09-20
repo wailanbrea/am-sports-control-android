@@ -122,7 +122,7 @@ fun BancasScreen(
                 item {
                     BancasSummaryCard(
                         totalPorCobrar = uiState.totalPorCobrar,
-                        totalAFavor = uiState.totalAFavor,
+                        totalPorEnviar = uiState.totalPorEnviar,
                         netBalance = uiState.netBalance
                     )
                 }
@@ -156,7 +156,7 @@ fun BancasScreen(
                             val count = when (tab) {
                                 BranchFilterTab.TODAS -> uiState.branches.size
                                 BranchFilterTab.POR_COBRAR -> uiState.countPorCobrar
-                                BranchFilterTab.A_FAVOR -> uiState.countAFavor
+                                BranchFilterTab.POR_ENVIAR -> uiState.countPorEnviar
                                 BranchFilterTab.SALDADAS -> uiState.countSaldadas
                                 BranchFilterTab.INACTIVAS -> uiState.countInactivas
                             }
@@ -196,7 +196,7 @@ fun BancasScreen(
 @Composable
 fun BancasSummaryCard(
     totalPorCobrar: BigDecimal,
-    totalAFavor: BigDecimal,
+    totalPorEnviar: BigDecimal,
     netBalance: BigDecimal
 ) {
     Card(
@@ -235,15 +235,15 @@ fun BancasSummaryCard(
 
                 Column {
                     Text(
-                        text = "A Favor Bancas",
+                        text = "Por Enviar",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.7f)
                     )
                     Text(
-                        text = FinancialCalculator.formatCurrency(totalAFavor),
+                        text = FinancialCalculator.formatCurrency(totalPorEnviar),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = StatusPendingBorder
+                        color = StatusAlertContent
                     )
                 }
 
@@ -327,7 +327,7 @@ fun BranchListItemCard(
                 val (bg, fg, statusLabel) = when {
                     branch.status == BranchStatus.INACTIVE -> Triple(StatusNeutralBg, StatusNeutralContent, "Inactiva")
                     roundedBalance > BigDecimal.ZERO -> Triple(StatusPendingBg, StatusPendingContent, "Por cobrar")
-                    roundedBalance < BigDecimal.ZERO -> Triple(StatusReadyBg, StatusReadyContent, "A favor")
+                    roundedBalance < BigDecimal.ZERO -> Triple(StatusAlertBg, StatusAlertContent, "Por enviar")
                     else -> Triple(StatusNeutralBg, StatusNeutralContent, "Saldada")
                 }
 
@@ -358,8 +358,8 @@ fun BranchListItemCard(
                 )
 
                 val balanceColor = when {
-                    roundedBalance > BigDecimal.ZERO -> StatusAlertContent
-                    roundedBalance < BigDecimal.ZERO -> StatusReadyContent
+                    roundedBalance > BigDecimal.ZERO -> PrimaryBlue
+                    roundedBalance < BigDecimal.ZERO -> StatusAlertContent
                     else -> MaterialTheme.colorScheme.onSurface
                 }
 

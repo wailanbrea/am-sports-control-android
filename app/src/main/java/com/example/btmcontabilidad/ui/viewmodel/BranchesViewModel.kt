@@ -15,8 +15,8 @@ import java.math.BigDecimal
 
 enum class BranchFilterTab(val label: String) {
     TODAS("Todas"),
-    POR_COBRAR("Por recoger"),
-    A_FAVOR("A favor"),
+    POR_COBRAR("Por cobrar"),
+    POR_ENVIAR("Por enviar"),
     SALDADAS("Saldadas"),
     INACTIVAS("Inactivas")
 }
@@ -29,10 +29,10 @@ data class BranchesUiState(
     val searchQuery: String = "",
     val selectedTab: BranchFilterTab = BranchFilterTab.TODAS,
     val totalPorCobrar: BigDecimal = BigDecimal.ZERO,
-    val totalAFavor: BigDecimal = BigDecimal.ZERO,
+    val totalPorEnviar: BigDecimal = BigDecimal.ZERO,
     val netBalance: BigDecimal = BigDecimal.ZERO,
     val countPorCobrar: Int = 0,
-    val countAFavor: Int = 0,
+    val countPorEnviar: Int = 0,
     val countSaldadas: Int = 0,
     val countInactivas: Int = 0
 )
@@ -58,9 +58,9 @@ class BranchesViewModel(
             try {
                 repositoryContainer.branchRepository.getBranches().collect { branchList ->
                     var porCobrar = BigDecimal.ZERO
-                    var aFavor = BigDecimal.ZERO
+                    var porEnviar = BigDecimal.ZERO
                     var cntPorCobrar = 0
-                    var cntAFavor = 0
+                    var cntPorEnviar = 0
                     var cntSaldadas = 0
                     var cntInactivas = 0
 
@@ -76,8 +76,8 @@ class BranchesViewModel(
                                 cntPorCobrar++
                             }
                             rounded < BigDecimal.ZERO -> {
-                                aFavor = aFavor.add(rounded.abs())
-                                cntAFavor++
+                                porEnviar = porEnviar.add(rounded.abs())
+                                cntPorEnviar++
                             }
                             else -> {
                                 cntSaldadas++
@@ -85,16 +85,16 @@ class BranchesViewModel(
                         }
                     }
 
-                    val net = porCobrar.subtract(aFavor)
+                    val net = porCobrar.subtract(porEnviar)
 
                     val currentState = _uiState.value.copy(
                         isLoading = false,
                         branches = branchList,
                         totalPorCobrar = FinancialCalculator.roundMoney(porCobrar),
-                        totalAFavor = FinancialCalculator.roundMoney(aFavor),
+                        totalPorEnviar = FinancialCalculator.roundMoney(porEnviar),
                         netBalance = FinancialCalculator.roundMoney(net),
                         countPorCobrar = cntPorCobrar,
-                        countAFavor = cntAFavor,
+                        countPorEnviar = cntPorEnviar,
                         countSaldadas = cntSaldadas,
                         countInactivas = cntInactivas
                     )
@@ -146,7 +146,7 @@ class BranchesViewModel(
             val matchesTab = when (state.selectedTab) {
                 BranchFilterTab.TODAS -> true
                 BranchFilterTab.POR_COBRAR -> branch.status == BranchStatus.ACTIVE && rounded > BigDecimal.ZERO
-                BranchFilterTab.A_FAVOR -> branch.status == BranchStatus.ACTIVE && rounded < BigDecimal.ZERO
+                BranchFilterTab.POR_ENVIAR -> branch.status == BranchStatus.ACTIVE && rounded < BigDecimal.ZERO
                 BranchFilterTab.SALDADAS -> branch.status == BranchStatus.ACTIVE && rounded.compareTo(BigDecimal.ZERO) == 0
                 BranchFilterTab.INACTIVAS -> branch.status == BranchStatus.INACTIVE
             }

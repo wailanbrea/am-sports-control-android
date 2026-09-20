@@ -81,6 +81,8 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = viewModel(),
     onNavigateToRegisterCollection: () -> Unit = {},
     onNavigateToRegisterAdvance: () -> Unit = {},
+    onNavigateToMoneyDelivery: () -> Unit = {},
+    onNavigateToManualResult: () -> Unit = {},
     onNavigateToLedger: () -> Unit = {},
     onNavigateToBancas: () -> Unit = {},
     onNavigateToProfile: () -> Unit = {}
@@ -100,7 +102,7 @@ fun DashboardScreen(
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "Control Contable",
+                            text = "Control de Bancas",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -154,7 +156,8 @@ fun DashboardScreen(
                 item {
                     QuickActionsSection(
                         onRegisterCollection = onNavigateToRegisterCollection,
-                        onRegisterAdvance = onNavigateToRegisterAdvance
+                        onRegisterMoneyDelivery = onNavigateToMoneyDelivery,
+                        onRegisterManualResult = onNavigateToManualResult
                     )
                 }
 
@@ -266,21 +269,22 @@ fun TopMetricsSection(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Total A Favor de Bancas Card
+
+            // Total Por Enviar a Bancas Card (Premios / Déficit)
             Card(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { onNavigateToBancas() },
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = StatusPendingBg)
+                colors = CardDefaults.cardColors(containerColor = StatusAlertBg)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "A FAVOR BANCAS",
+                        text = "POR ENVIAR (PREMIOS)",
                         style = MaterialTheme.typography.labelSmall,
-                        color = StatusPendingContent,
+                        color = StatusAlertContent,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -288,12 +292,12 @@ fun TopMetricsSection(
                         text = FinancialCalculator.formatCurrency(uiState.totalBranchCredit),
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = StatusPendingContent
+                        color = StatusAlertContent
                     )
                     Text(
                         text = "${uiState.creditBranchesCount} bancas",
                         style = MaterialTheme.typography.bodySmall,
-                        color = StatusPendingContent.copy(alpha = 0.8f)
+                        color = StatusAlertContent.copy(alpha = 0.8f)
                     )
                 }
             }
@@ -336,7 +340,8 @@ fun TopMetricsSection(
 @Composable
 fun QuickActionsSection(
     onRegisterCollection: () -> Unit,
-    onRegisterAdvance: () -> Unit
+    onRegisterMoneyDelivery: () -> Unit,
+    onRegisterManualResult: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
@@ -350,7 +355,7 @@ fun QuickActionsSection(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             QuickActionButton(
-                label = "Registrar Cobro",
+                label = "Cobrar",
                 icon = Icons.Default.Payments,
                 backgroundColor = StatusReadyContent,
                 contentColor = Color.White,
@@ -359,12 +364,21 @@ fun QuickActionsSection(
             )
 
             QuickActionButton(
-                label = "Adelanto",
+                label = "Llevar Dinero",
                 icon = Icons.Default.LocalAtm,
+                backgroundColor = StatusAlertContent,
+                contentColor = Color.White,
+                modifier = Modifier.weight(1f),
+                onClick = onRegisterMoneyDelivery
+            )
+
+            QuickActionButton(
+                label = "Resultado",
+                icon = Icons.Default.Add,
                 backgroundColor = DeepNavy,
                 contentColor = Color.White,
                 modifier = Modifier.weight(1f),
-                onClick = onRegisterAdvance
+                onClick = onRegisterManualResult
             )
         }
     }

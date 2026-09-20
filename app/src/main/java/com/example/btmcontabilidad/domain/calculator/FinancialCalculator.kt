@@ -31,7 +31,7 @@ object FinancialCalculator {
         val rounded = roundMoney(balance)
         return when {
             rounded > BigDecimal.ZERO -> BalanceState.POR_COBRAR
-            rounded < BigDecimal.ZERO -> BalanceState.A_FAVOR_BANCA
+            rounded < BigDecimal.ZERO -> BalanceState.POR_ENVIAR
             else -> BalanceState.SALDADA
         }
     }

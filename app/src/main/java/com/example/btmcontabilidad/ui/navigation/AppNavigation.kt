@@ -26,11 +26,11 @@ data class RegisterAdvanceRoute(val initialBranchId: String? = null) : AppRoute
 data class RegisterWeeklySettlementRoute(val branchId: String, val previousBalance: String) : AppRoute
 
 @Serializable
-data class RegisterManualResultRoute(val branchId: String, val previousBalance: String = "0.00") : AppRoute
+data class RegisterManualResultRoute(val branchId: String = "", val previousBalance: String = "0.00") : AppRoute
 
 @Serializable
 data class RegisterMoneyDeliveryRoute(
-    val branchId: String,
+    val branchId: String = "",
     val suggestedAmount: String = "0.00",
     val manualResultId: Long? = null
 ) : AppRoute

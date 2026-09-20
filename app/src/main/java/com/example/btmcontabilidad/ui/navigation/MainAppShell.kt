@@ -124,6 +124,8 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                     is DashboardRoute -> DashboardScreen(
                         onNavigateToRegisterCollection = { backStack.add(RegisterCollectionRoute()) },
                         onNavigateToRegisterAdvance = { backStack.add(RegisterAdvanceRoute()) },
+                        onNavigateToMoneyDelivery = { backStack.add(RegisterMoneyDeliveryRoute()) },
+                        onNavigateToManualResult = { backStack.add(RegisterManualResultRoute()) },
                         onNavigateToLedger = { backStack.add(LedgerRoute) },
                         onNavigateToBancas = { backStack.add(BancasRoute) },
                         onNavigateToProfile = { backStack.add(ReportsRoute) }

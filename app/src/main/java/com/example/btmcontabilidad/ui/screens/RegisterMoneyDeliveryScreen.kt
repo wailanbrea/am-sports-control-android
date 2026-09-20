@@ -1,6 +1,7 @@
 package com.example.btmcontabilidad.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,10 +20,14 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -32,7 +37,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -42,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.btmcontabilidad.domain.calculator.FinancialCalculator
 import com.example.btmcontabilidad.ui.theme.PrimaryBlue
+import com.example.btmcontabilidad.ui.theme.StatusAlertBg
 import com.example.btmcontabilidad.ui.theme.StatusAlertContent
 import com.example.btmcontabilidad.ui.viewmodel.RegisterMoneyDeliveryViewModel
 import java.math.BigDecimal
@@ -76,11 +85,13 @@ fun RegisterMoneyDeliveryScreen(
         }
     }
 
+    var expandedDropdown by remember { mutableStateOf(false) }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Registrar Dinero Llevado", fontWeight = FontWeight.Bold) },
+                title = { Text("Llevar Dinero a Banca", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
@@ -89,44 +100,100 @@ fun RegisterMoneyDeliveryScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            item {
-                Text(
-                    text = "Registre la salida física de dinero en efectivo llevada a la banca para cubrir su pérdida operativa. Este movimiento compensa el saldo y descuenta de caja.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        if (state.isLoadingBranches) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
             }
-
-            if (state.suggestedAmount > BigDecimal.ZERO) {
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Branch Selector Dropdown
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    ExposedDropdownMenuBox(
+                        expanded = expandedDropdown,
+                        onExpandedChange = { expandedDropdown = !expandedDropdown }
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Monto de pérdida sugerido a cubrir:",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = FinancialCalculator.formatCurrency(state.suggestedAmount),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = StatusAlertContent
-                            )
+                        OutlinedTextField(
+                            value = state.selectedBranch?.let { "${it.code} — ${it.name}${if (!it.operatorName.isNullOrBlank()) " (${it.operatorName})" else ""}" } ?: "Seleccionar Banca",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Banca Receptora del Dinero") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedDropdown) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        ExposedDropdownMenu(
+                            expanded = expandedDropdown,
+                            onDismissRequest = { expandedDropdown = false }
+                        ) {
+                            state.availableBranches.forEach { branch ->
+                                DropdownMenuItem(
+                                    text = { Text("${branch.code} — ${branch.name}${if (!branch.operatorName.isNullOrBlank()) " (${branch.operatorName})" else ""}") },
+                                    onClick = {
+                                        viewModel.selectBranch(branch.id)
+                                        expandedDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
-            }
+
+                // Balance information banner
+                item {
+                    val branchBalance = state.selectedBranch?.currentBalance ?: BigDecimal.ZERO
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (branchBalance < BigDecimal.ZERO) StatusAlertBg else MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = if (branchBalance < BigDecimal.ZERO) "DÉFICIT PENDIENTE POR PREMIOS" else "SALDO ACTUAL DE LA BANCA",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (branchBalance < BigDecimal.ZERO) StatusAlertContent else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = FinancialCalculator.formatCurrency(branchBalance),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = if (branchBalance < BigDecimal.ZERO) StatusAlertContent else MaterialTheme.colorScheme.onSurface
+                            )
+                            if (branchBalance < BigDecimal.ZERO) {
+                                Text(
+                                    text = "Esta banca necesita ${FinancialCalculator.formatCurrency(branchBalance.abs())} para pagar premios a clientes.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = StatusAlertContent.copy(alpha = 0.9f),
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Text(
+                        text = "Registre el dinero en efectivo entregado a la banca para el pago de premios. Este dinero compensa la cuenta de la banca y salda el déficit.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
             item {
                 OutlinedTextField(
@@ -197,4 +264,5 @@ fun RegisterMoneyDeliveryScreen(
             }
         }
     }
+}
 }

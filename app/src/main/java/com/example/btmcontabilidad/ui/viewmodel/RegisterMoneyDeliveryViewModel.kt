@@ -14,12 +14,19 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import com.example.btmcontabilidad.domain.model.Branch
+import com.example.btmcontabilidad.domain.model.BranchStatus
+import kotlinx.coroutines.flow.firstOrNull
+
 data class MoneyDeliveryUiState(
     val branchId: String = "",
+    val selectedBranch: Branch? = null,
+    val availableBranches: List<Branch> = emptyList(),
+    val isLoadingBranches: Boolean = false,
     val manualResultId: Long? = null,
     val suggestedAmount: BigDecimal = BigDecimal.ZERO,
     val amountInput: String = "",
-    val reasonInput: String = "Cubrir pérdida operativa",
+    val reasonInput: String = "Cubrir pérdida operativa / Premios",
     val businessDate: String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
     val notesInput: String = "",
     val isSubmitting: Boolean = false,
@@ -38,14 +45,71 @@ class RegisterMoneyDeliveryViewModel(
     val uiState: StateFlow<MoneyDeliveryUiState> = _uiState.asStateFlow()
 
     fun initialize(branchId: String, suggestedAmount: BigDecimal, manualResultId: Long? = null) {
-        if (_uiState.value.branchId == branchId && _uiState.value.amountInput.isNotEmpty()) return
-        val suggestedStr = if (suggestedAmount > BigDecimal.ZERO) suggestedAmount.toPlainString() else ""
-        _uiState.value = MoneyDeliveryUiState(
-            branchId = branchId,
-            manualResultId = manualResultId,
-            suggestedAmount = suggestedAmount,
-            amountInput = suggestedStr
-        )
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingBranches = true, errorMessage = null) }
+            try {
+                val branches = repositoryContainer.branchRepository.getBranches().firstOrNull() ?: emptyList()
+                val activeBranches = branches.filter { it.status == BranchStatus.ACTIVE }
+
+                val defaultBranch = if (branchId.isNotBlank()) {
+                    activeBranches.find { it.id == branchId } ?: activeBranches.firstOrNull()
+                } else {
+                    activeBranches.firstOrNull()
+                }
+
+                val currentBalance = defaultBranch?.currentBalance ?: BigDecimal.ZERO
+                val effectiveSuggested = if (suggestedAmount > BigDecimal.ZERO) {
+                    suggestedAmount
+                } else if (currentBalance < BigDecimal.ZERO) {
+                    currentBalance.abs()
+                } else {
+                    BigDecimal.ZERO
+                }
+
+                val defaultReason = if (currentBalance < BigDecimal.ZERO || effectiveSuggested > BigDecimal.ZERO) {
+                    "Cubrir premios / déficit de la banca"
+                } else {
+                    "Fondo para pago de premios"
+                }
+
+                _uiState.update { state ->
+                    state.copy(
+                        branchId = defaultBranch?.id.orEmpty(),
+                        selectedBranch = defaultBranch,
+                        availableBranches = activeBranches,
+                        isLoadingBranches = false,
+                        manualResultId = manualResultId,
+                        suggestedAmount = effectiveSuggested,
+                        amountInput = if (effectiveSuggested > BigDecimal.ZERO) effectiveSuggested.toPlainString() else state.amountInput,
+                        reasonInput = defaultReason
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoadingBranches = false,
+                        errorMessage = e.message ?: "Error al cargar bancas"
+                    )
+                }
+            }
+        }
+    }
+
+    fun selectBranch(branchId: String) {
+        val branch = _uiState.value.availableBranches.find { it.id == branchId } ?: return
+        val currentBalance = branch.currentBalance
+        val effectiveSuggested = if (currentBalance < BigDecimal.ZERO) currentBalance.abs() else BigDecimal.ZERO
+        val reason = if (currentBalance < BigDecimal.ZERO) "Cubrir premios / déficit de la banca" else "Fondo para pago de premios"
+
+        _uiState.update {
+            it.copy(
+                branchId = branch.id,
+                selectedBranch = branch,
+                suggestedAmount = effectiveSuggested,
+                amountInput = if (effectiveSuggested > BigDecimal.ZERO) effectiveSuggested.toPlainString() else "",
+                reasonInput = reason
+            )
+        }
     }
 
     fun updateAmount(input: String) {
