@@ -28,7 +28,9 @@ data class CashMovement(
     val reference: String? = null,
     val notes: String? = null,
     val createdAt: String? = null,
-    val createdBy: String? = null
+    val createdBy: String? = null,
+    val branchCode: String? = null,
+    val branchName: String? = null
 )
 
 @Serializable

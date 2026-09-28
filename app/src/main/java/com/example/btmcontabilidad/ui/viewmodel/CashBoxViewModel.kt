@@ -71,8 +71,11 @@ class CashBoxViewModel(
                 _uiState.update { it.copy(errorMessage = null) }
             }
             try {
-                val branches = repositoryContainer.branchRepository.getBranches().first()
-                    .filter { it.status == BranchStatus.ACTIVE }
+                val branches = try {
+                    repositoryContainer.branchRepository.fetchBranches()
+                } catch (_: Exception) {
+                    repositoryContainer.branchRepository.getBranches().first()
+                }.filter { it.status == BranchStatus.ACTIVE }
                 val boxes = repositoryContainer.cashBoxRepository.getCashBoxes()
                 val currentSelectedId = targetBoxId
                     ?: _uiState.value.selectedCashBoxId

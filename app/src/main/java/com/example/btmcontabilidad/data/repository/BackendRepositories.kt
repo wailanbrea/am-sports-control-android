@@ -731,7 +731,9 @@ private fun CashMovementResponse.toDomain(expectedType: CashMovementType? = null
         createdAt = created_at,
         createdBy = creator_name?.takeIf { it.isNotBlank() }
             ?: creator?.name?.takeIf { it.isNotBlank() }
-            ?: "SISTEMA"
+            ?: "SISTEMA",
+        branchCode = branch?.code,
+        branchName = branch?.name
     )
 }
 
@@ -853,7 +855,9 @@ private fun LedgerEntryResponse.toDomain(): LedgerEntry {
         createdBy = creator_name?.takeIf { it.isNotBlank() }
             ?: creator?.name?.takeIf { it.isNotBlank() }
             ?: "SISTEMA",
-        reversalOfEntryId = reversal_of_entry_id?.toString()
+        reversalOfEntryId = reversal_of_entry_id?.toString(),
+        branchCode = branch?.code,
+        branchName = branch?.name
     )
 }
 

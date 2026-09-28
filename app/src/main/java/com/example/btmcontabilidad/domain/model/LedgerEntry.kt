@@ -20,7 +20,9 @@ data class LedgerEntry(
     val businessDate: String,
     val description: String,
     val createdBy: String = "SISTEMA",
-    val reversalOfEntryId: String? = null
+    val reversalOfEntryId: String? = null,
+    val branchCode: String? = null,
+    val branchName: String? = null
 )
 
 typealias LedgerTransaction = LedgerEntry

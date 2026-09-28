@@ -64,7 +64,11 @@ class LedgerViewModel(
                 _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             }
             try {
-                val branches = repositoryContainer.branchRepository.getBranches().firstOrNull() ?: emptyList()
+                val branches = try {
+                    repositoryContainer.branchRepository.fetchBranches()
+                } catch (_: Exception) {
+                    repositoryContainer.branchRepository.getBranches().firstOrNull() ?: emptyList()
+                }
                 val branchesMap = branches.associateBy { it.id }
 
                 repositoryContainer.ledgerRepository.getLedgerEntries().collect { entryList ->

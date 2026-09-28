@@ -395,7 +395,8 @@ data class CashMovementResponse(
     val notes: String? = null,
     val created_at: String? = null,
     val creator_name: String? = null,
-    val creator: ApiCreator? = null
+    val creator: ApiCreator? = null,
+    val branch: BranchResponse? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -468,7 +469,8 @@ data class LedgerEntryResponse(
     val description: String? = null,
     val creator_name: String? = null,
     val creator: ApiCreator? = null,
-    val reversal_of_entry_id: Long? = null
+    val reversal_of_entry_id: Long? = null,
+    val branch: BranchResponse? = null
 )
 
 @JsonClass(generateAdapter = true)

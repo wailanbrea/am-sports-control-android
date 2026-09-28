@@ -834,9 +834,21 @@ private fun HistoryMovementRow(movement: CashMovement, branch: Branch?) {
         else -> Triple(Color(0xFFEEEDFD), Color(0xFF5C59E8), Icons.Default.Description)
     }
 
+    val branchLabel = branch?.let { "${it.code} · ${it.name}".trim() }
+        ?: if (!movement.branchName.isNullOrBlank()) {
+            val codePrefix = movement.branchCode?.takeIf { it.isNotBlank() }?.let { "$it · " }.orEmpty()
+            "$codePrefix${movement.branchName}".trim()
+        } else if (!movement.branchId.isNullOrBlank()) {
+            "Banca #${movement.branchId}"
+        } else null
+
+    val isCollectionIncome = movement.type == CashMovementType.INCOME &&
+        (movement.reason.contains("cobro", ignoreCase = true) || branchLabel != null)
+
     val title = when {
         isInitialFund -> "Fondo Inicial / Apertura"
         isTransfer -> "Transferencia a banca"
+        isCollectionIncome -> "Cobro de Banca"
         isDeposit -> "Entrada por depósito"
         movement.type == CashMovementType.INCOME -> "Entrada de efectivo"
         movement.reason.contains("ajuste", ignoreCase = true) -> "Ajuste manual"
@@ -847,8 +859,8 @@ private fun HistoryMovementRow(movement: CashMovement, branch: Branch?) {
     val subtitle = buildString {
         if (isInitialFund) {
             append("Apertura de caja chica")
-        } else if (isTransfer && branch != null) {
-            append("${branch.code} ${branch.name}")
+        } else if (branchLabel != null) {
+            append(branchLabel)
         } else if (movement.reason.isNotBlank() && title != movement.reason) {
             append(movement.reason)
         } else {
@@ -861,7 +873,9 @@ private fun HistoryMovementRow(movement: CashMovement, branch: Branch?) {
     }
 
     val conceptTag = movement.notes?.takeIf { it.isNotBlank() }
+        ?: movement.reference?.takeIf { it.isNotBlank() }?.let { "Ref: $it" }
         ?: if (isInitialFund) "Fondo base inicial"
+        else if (branchLabel != null && movement.reason.isNotBlank() && movement.reason != title) movement.reason
         else if (isTransfer && movement.reason.isNotBlank() && movement.reason != title) movement.reason
         else null
 

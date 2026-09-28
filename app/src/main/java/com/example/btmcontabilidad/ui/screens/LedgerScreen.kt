@@ -510,8 +510,15 @@ fun LedgerCardItem(
                                 modifier = Modifier.size(12.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            val branchLabel = branch?.let { "${it.code} ${it.name}".trim() }
+                                ?: if (!entry.branchName.isNullOrBlank()) {
+                                    val codePrefix = entry.branchCode?.takeIf { it.isNotBlank() }?.let { "$it " }.orEmpty()
+                                    "$codePrefix${entry.branchName}".trim()
+                                } else {
+                                    "Banca ${entry.branchId}"
+                                }
                             Text(
-                                text = branch?.let { "${it.code} ${it.name}" } ?: "Banca ${entry.branchId}",
+                                text = branchLabel,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

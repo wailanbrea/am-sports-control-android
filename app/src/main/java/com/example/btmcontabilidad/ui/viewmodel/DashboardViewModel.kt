@@ -28,7 +28,8 @@ data class DashboardUiState(
     val creditBranchesCount: Int = 0,
     val recentTransactions: List<LedgerEntry> = emptyList(),
     val cashBalance: BigDecimal = BigDecimal.ZERO,
-    val isAdmin: Boolean = false
+    val isAdmin: Boolean = false,
+    val branchesMap: Map<String, com.example.btmcontabilidad.domain.model.Branch> = emptyMap()
 )
 
 class DashboardViewModel(
@@ -64,11 +65,17 @@ class DashboardViewModel(
             try {
                 val snapshotDeferred = async { repositoryContainer.dashboard() }
                 val branchesDeferred = async {
-                    repositoryContainer.branchRepository.getBranches().firstOrNull().orEmpty()
+                    try {
+                        repositoryContainer.branchRepository.fetchBranches()
+                    } catch (_: Exception) {
+                        repositoryContainer.branchRepository.getBranches().firstOrNull().orEmpty()
+                    }
                 }
                 val snapshot = snapshotDeferred.await()
                 FinancialCalculator.setCurrencyCode(snapshot.currencyCode)
-                val activeBranches = branchesDeferred.await().filter { it.status == BranchStatus.ACTIVE }
+                val allBranches = branchesDeferred.await()
+                val activeBranches = allBranches.filter { it.status == BranchStatus.ACTIVE }
+                val branchesMap = allBranches.associateBy { it.id }
 
                 _uiState.value = DashboardUiState(
                     isLoading = false,
@@ -82,7 +89,8 @@ class DashboardViewModel(
                     pendingBranchesCount = activeBranches.count { it.currentBalance > BigDecimal.ZERO },
                     creditBranchesCount = activeBranches.count { it.currentBalance < BigDecimal.ZERO },
                     recentTransactions = snapshot.recentActivity,
-                    cashBalance = snapshot.cashBalance
+                    cashBalance = snapshot.cashBalance,
+                    branchesMap = branchesMap
                 )
             } catch (e: Exception) {
                 _uiState.update {

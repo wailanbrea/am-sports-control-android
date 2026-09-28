@@ -376,6 +376,7 @@ fun DashboardScreen(
                             } else {
                                 DashboardRecentTransactionsCard(
                                     transactions = uiState.recentTransactions,
+                                    branchesMap = uiState.branchesMap,
                                     onItemClick = onNavigateToLedger
                                 )
                             }
@@ -974,6 +975,7 @@ fun QuickActionButton(
 @Composable
 fun DashboardRecentTransactionsCard(
     transactions: List<LedgerEntry>,
+    branchesMap: Map<String, com.example.btmcontabilidad.domain.model.Branch> = emptyMap(),
     onItemClick: () -> Unit
 ) {
     Card(
@@ -1017,8 +1019,10 @@ fun DashboardRecentTransactionsCard(
                         thickness = 0.8.dp
                     )
                 }
+                val branch = branchesMap[entry.branchId]
                 DashboardHistoryMovementRow(
                     entry = entry,
+                    branch = branch,
                     onClick = onItemClick
                 )
             }
@@ -1036,6 +1040,7 @@ fun DashboardRecentTransactionsCard(
 @Composable
 fun DashboardHistoryMovementRow(
     entry: LedgerEntry,
+    branch: com.example.btmcontabilidad.domain.model.Branch? = null,
     onClick: () -> Unit
 ) {
     val isNegative = entry.isNegativeMovement()
@@ -1057,12 +1062,18 @@ fun DashboardHistoryMovementRow(
         else -> "Ganancia Operativa"
     }
 
-    val subtitle = buildString {
-        if (!entry.branchId.isNullOrBlank()) {
-            append("Banca ${entry.branchId}")
+    val branchLabel = branch?.let { "${it.code} · ${it.name}".trim() }
+        ?: if (!entry.branchName.isNullOrBlank()) {
+            val codePrefix = entry.branchCode?.takeIf { it.isNotBlank() }?.let { "$it · " }.orEmpty()
+            "$codePrefix${entry.branchName}".trim()
+        } else if (!entry.branchId.isNullOrBlank()) {
+            "Banca #${entry.branchId}"
         } else {
-            append("Consorcio")
+            "Consorcio"
         }
+
+    val subtitle = buildString {
+        append(branchLabel)
         val time = formatDashboardTime(entry.businessDate)
         if (time.isNotBlank()) {
             append(" · ").append(time)
