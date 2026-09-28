@@ -12,11 +12,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -26,12 +30,16 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.btmcontabilidad.data.network.CollectorDto
 import com.example.btmcontabilidad.domain.model.BranchStatus
 import com.example.btmcontabilidad.ui.viewmodel.BranchFormViewModel
 
@@ -39,7 +47,7 @@ import com.example.btmcontabilidad.ui.viewmodel.BranchFormViewModel
 @Composable
 fun BranchFormScreen(
     branchId: String?,
-    viewModel: BranchFormViewModel = viewModel(),
+    viewModel: BranchFormViewModel = viewModel(key = branchId ?: "new_branch"),
     onNavigateBack: () -> Unit = {},
     onSaved: (String) -> Unit = {}
 ) {
@@ -65,7 +73,7 @@ fun BranchFormScreen(
             )
         }
     ) { innerPadding ->
-        if (uiState.isLoading) {
+        if (uiState.isLoading || (branchId != null && uiState.code.isEmpty() && uiState.errorMessage == null)) {
             Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
@@ -98,6 +106,41 @@ fun BranchFormScreen(
                 item { BranchTextField(uiState.operatorName, viewModel::updateOperatorName, "Encargado / Operador (opcional)", "Nombre del operador", !uiState.isSaving) }
                 item { BranchTextField(uiState.route, viewModel::updateRoute, "Ruta (opcional)", "Ej. Ruta Norte", !uiState.isSaving) }
                 item { BranchTextField(uiState.description, viewModel::updateDescription, "Descripción / Dirección (opcional)", "Ubicación o notas", !uiState.isSaving, minLines = 2) }
+
+                item {
+                    Text(
+                        "Comisión y Liquidación",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                item {
+                    BranchTextField(
+                        value = uiState.commissionRate,
+                        onValueChange = viewModel::updateCommissionRate,
+                        label = "Porcentaje de comisión (%) (opcional)",
+                        placeholder = "Ej. 10 para 10%, 5 para 5%",
+                        enabled = !uiState.isSaving
+                    )
+                }
+
+                item {
+                    Text(
+                        "Cobrador Asignado",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                item {
+                    CollectorDropdownSelector(
+                        collectors = uiState.collectors,
+                        selectedCollectorId = uiState.selectedCollectorId,
+                        onCollectorSelected = { id, name -> viewModel.updateCollector(id, name) },
+                        enabled = !uiState.isSaving
+                    )
+                }
 
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -163,4 +206,73 @@ private fun BranchTextField(
         minLines = minLines,
         singleLine = minLines == 1
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CollectorDropdownSelector(
+    collectors: List<CollectorDto>,
+    selectedCollectorId: Long?,
+    onCollectorSelected: (Long?, String?) -> Unit,
+    enabled: Boolean
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedCollector = collectors.firstOrNull { it.id == selectedCollectorId }
+    val displayText = selectedCollector?.let { "${it.name} (${it.email})" } ?: "Sin asignar (Ninguno)"
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (enabled) expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = displayText,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text("Cobrador asignado a esta banca") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            shape = RoundedCornerShape(12.dp)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        "Sin asignar (Ninguno)",
+                        fontWeight = if (selectedCollectorId == null) FontWeight.Bold else FontWeight.Normal
+                    )
+                },
+                onClick = {
+                    onCollectorSelected(null, null)
+                    expanded = false
+                }
+            )
+            collectors.forEach { collector ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(
+                                collector.name,
+                                fontWeight = if (collector.id == selectedCollectorId) FontWeight.Bold else FontWeight.Normal
+                            )
+                            Text(
+                                collector.email,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    onClick = {
+                        onCollectorSelected(collector.id, collector.name)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
 }

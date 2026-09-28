@@ -20,9 +20,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import com.example.btmcontabilidad.data.repository.RepositoryContainer
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.ui.NavDisplay
 import com.example.btmcontabilidad.ui.screens.AdvanceListScreen
@@ -36,6 +38,7 @@ import com.example.btmcontabilidad.ui.screens.ExportScreen
 import com.example.btmcontabilidad.ui.screens.LedgerScreen
 import com.example.btmcontabilidad.ui.screens.RegisterAdvanceScreen
 import com.example.btmcontabilidad.ui.screens.RegisterCollectionScreen
+import com.example.btmcontabilidad.ui.screens.RegisterExpenseScreen
 import com.example.btmcontabilidad.ui.screens.RegisterManualResultScreen
 import com.example.btmcontabilidad.ui.screens.RegisterMoneyDeliveryScreen
 import com.example.btmcontabilidad.ui.screens.RegisterWeeklySettlementScreen
@@ -58,6 +61,8 @@ enum class BottomTab(
 
 @Composable
 fun MainAppShell(onLogout: () -> Unit = {}) {
+    val context = LocalContext.current
+    val isAdmin: Boolean = remember(context) { RepositoryContainer.get(context).isAdmin }
     val backStack = remember { mutableStateListOf<AppRoute>(DashboardRoute) }
     val currentRoute = backStack.lastOrNull() ?: DashboardRoute
 
@@ -65,9 +70,17 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
         is DashboardRoute -> BottomTab.INICIO
         is BancasRoute -> BottomTab.BANCAS
         is RegisterCollectionRoute -> BottomTab.COBROS
-        is LedgerRoute -> BottomTab.MOVIMIENTOS
+        is LedgerRoute -> if (isAdmin) BottomTab.MOVIMIENTOS else null
         is ReportsRoute -> BottomTab.MAS
         else -> null
+    }
+
+    val visibleTabs = remember(isAdmin) {
+        if (isAdmin) {
+            BottomTab.entries
+        } else {
+            BottomTab.entries.filter { it != BottomTab.MOVIMIENTOS }
+        }
     }
 
     Scaffold(
@@ -77,7 +90,7 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                     containerColor = DeepNavy,
                     contentColor = PrimaryBlue
                 ) {
-                    BottomTab.entries.forEach { tab ->
+                    visibleTabs.forEach { tab ->
                         val selected = currentTab == tab
                         NavigationBarItem(
                             selected = selected,
@@ -120,29 +133,41 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                 .padding(innerPadding)
         ) { route ->
             NavEntry(key = route) {
-                when (route) {
-                    is DashboardRoute -> DashboardScreen(
+                androidx.compose.material3.Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.background
+                ) {
+                    when (route) {
+                        is DashboardRoute -> DashboardScreen(
                         onNavigateToRegisterCollection = { backStack.add(RegisterCollectionRoute()) },
                         onNavigateToRegisterAdvance = { backStack.add(RegisterAdvanceRoute()) },
                         onNavigateToMoneyDelivery = { backStack.add(RegisterMoneyDeliveryRoute()) },
                         onNavigateToManualResult = { backStack.add(RegisterManualResultRoute()) },
+                        onNavigateToRegisterExpense = { backStack.add(RegisterExpenseRoute()) },
+                        onNavigateToCollectors = { backStack.add(CollectorsRoute) },
                         onNavigateToLedger = { backStack.add(LedgerRoute) },
                         onNavigateToBancas = { backStack.add(BancasRoute) },
-                        onNavigateToProfile = { backStack.add(ReportsRoute) }
+                        onNavigateToProfile = { backStack.add(ReportsRoute) },
+                        onNavigateToCashBox = { backStack.add(CashBoxRoute()) }
                     )
 
                     is BancasRoute -> BancasScreen(
                         onBranchSelected = { branchId -> backStack.add(BranchDetailRoute(branchId)) },
                         onCreateBranch = { backStack.add(BranchFormRoute()) },
+                        onEditBranch = { branchId -> backStack.add(BranchFormRoute(branchId)) },
                         onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) },
                         onRegisterWeeklySettlement = { branchId, balance ->
                             backStack.add(RegisterManualResultRoute(branchId, balance))
                         },
-                        onTransferToBranch = { branchId -> backStack.add(RegisterMoneyDeliveryRoute(branchId)) }
+                        onTransferToBranch = { branchId -> backStack.add(RegisterMoneyDeliveryRoute(branchId)) },
+                        onRegisterCommission = { branchId ->
+                            backStack.add(RegisterExpenseRoute(initialBranchId = branchId, initialCategoryId = "comision"))
+                        }
                     )
 
                     is BranchDetailRoute -> BranchDetailScreen(
                         branchId = route.branchId,
+                        refreshKey = route.refreshKey,
                         onNavigateBack = { backStack.removeLastOrNull() },
                         onEdit = { branchId -> backStack.add(BranchFormRoute(branchId)) },
                         onDeleted = { backStack.removeLastOrNull() },
@@ -159,6 +184,9 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         },
                         onRegisterMoneyDelivery = { branchId, suggested ->
                             backStack.add(RegisterMoneyDeliveryRoute(branchId, suggested))
+                        },
+                        onRegisterCommission = { branchId ->
+                            backStack.add(RegisterExpenseRoute(initialBranchId = branchId, initialCategoryId = "comision"))
                         }
                     )
 
@@ -168,7 +196,7 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onSaved = { branchId ->
                             backStack.removeLastOrNull()
                             if (backStack.lastOrNull() is BranchDetailRoute) backStack.removeLastOrNull()
-                            backStack.add(BranchDetailRoute(branchId))
+                            backStack.add(BranchDetailRoute(branchId, System.currentTimeMillis()))
                         }
                     )
 
@@ -228,7 +256,16 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onNavigateToRegister = { backStack.add(RegisterAdvanceRoute()) }
                     )
 
-                    is LedgerRoute -> LedgerScreen()
+                    is LedgerRoute -> {
+                        if (!isAdmin) {
+                            BancasScreen(
+                                onBranchSelected = { branchId -> backStack.add(BranchDetailRoute(branchId)) },
+                                onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) }
+                            )
+                        } else {
+                            LedgerScreen()
+                        }
+                    }
 
                     is ReportsRoute -> ReportsScreen(
                         onNavigateToDashboard = { backStack.add(DashboardRoute) },
@@ -239,22 +276,58 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onNavigateToCashBox = { backStack.add(CashBoxRoute()) },
                         onNavigateToExport = { backStack.add(ExportRoute) },
                         onNavigateToCollectors = { backStack.add(CollectorsRoute) },
+                        onNavigateToExpense = { backStack.add(RegisterExpenseRoute()) },
                         onLogout = onLogout
                     )
 
-                    is CollectorsRoute -> com.example.btmcontabilidad.ui.screens.CollectorsScreen(
-                        onNavigateBack = { backStack.removeLastOrNull() }
-                    )
+                    is CollectorsRoute -> {
+                        if (!isAdmin) {
+                            BancasScreen(
+                                onBranchSelected = { branchId -> backStack.add(BranchDetailRoute(branchId)) },
+                                onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) }
+                            )
+                        } else {
+                            com.example.btmcontabilidad.ui.screens.CollectorsScreen(
+                                onNavigateBack = { backStack.removeLastOrNull() }
+                            )
+                        }
+                    }
 
-                    is CashBoxRoute -> CashBoxScreen(
+                    is CashBoxRoute -> {
+                        if (!isAdmin) {
+                            BancasScreen(
+                                onBranchSelected = { branchId -> backStack.add(BranchDetailRoute(branchId)) },
+                                onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) }
+                            )
+                        } else {
+                            CashBoxScreen(
+                                initialBranchId = route.initialBranchId,
+                                onNavigateBack = { backStack.removeLastOrNull() }
+                            )
+                        }
+                    }
+
+                    is ExportRoute -> {
+                        if (!isAdmin) {
+                            BancasScreen(
+                                onBranchSelected = { branchId -> backStack.add(BranchDetailRoute(branchId)) },
+                                onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) }
+                            )
+                        } else {
+                            ExportScreen(
+                                onNavigateBack = { backStack.removeLastOrNull() }
+                            )
+                        }
+                    }
+
+                    is RegisterExpenseRoute -> RegisterExpenseScreen(
                         initialBranchId = route.initialBranchId,
-                        onNavigateBack = { backStack.removeLastOrNull() }
+                        initialCategoryId = route.initialCategoryId,
+                        onNavigateBack = { backStack.removeLastOrNull() },
+                        onSaved = { backStack.removeLastOrNull() }
                     )
 
-                    is ExportRoute -> ExportScreen(
-                        onNavigateBack = { backStack.removeLastOrNull() }
-                    )
-
+                }
                 }
             }
         }

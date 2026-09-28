@@ -24,3 +24,29 @@ data class LedgerEntry(
 )
 
 typealias LedgerTransaction = LedgerEntry
+
+fun LedgerEntry.isMoneyDelivery(): Boolean {
+    val desc = description.lowercase()
+    val src = sourceType.name.lowercase()
+    return src.contains("money_delivery") || src.contains("moneydelivery") ||
+            desc.contains("dinero llevado") || desc.contains("llevado para") ||
+            desc.contains("llevado a la banca")
+}
+
+fun LedgerEntry.isCollection(): Boolean {
+    val desc = description.lowercase()
+    val src = sourceType.name.lowercase()
+    return src.contains("collection") || desc.contains("cobro")
+}
+
+fun LedgerEntry.isNegativeMovement(): Boolean {
+    val desc = description.lowercase()
+    val src = sourceType.name.lowercase()
+    return isMoneyDelivery() ||
+            src.contains("advance") ||
+            desc.contains("pérdida") ||
+            desc.contains("perdida") ||
+            desc.contains("adelanto") ||
+            entryType.name.equals("result_negative", ignoreCase = true) ||
+            (signedAmount < BigDecimal.ZERO && !isCollection())
+}

@@ -59,7 +59,8 @@ data class CollectionListUiState(
     val filteredItems: List<CollectionListItem> = emptyList(),
     val searchQuery: String = "",
     val selectedFilter: CollectionListFilter = CollectionListFilter.ALL,
-    val reversingCollectionId: String? = null
+    val reversingCollectionId: String? = null,
+    val isAdmin: Boolean = RepositoryContainer.Instance.isAdmin
 )
 
 data class AdvanceListUiState(
@@ -70,7 +71,8 @@ data class AdvanceListUiState(
     val filteredItems: List<AdvanceListItem> = emptyList(),
     val searchQuery: String = "",
     val selectedFilter: AdvanceListFilter = AdvanceListFilter.ALL,
-    val reversingAdvanceId: String? = null
+    val reversingAdvanceId: String? = null,
+    val isAdmin: Boolean = RepositoryContainer.Instance.isAdmin
 )
 
 internal fun findReversibleLedgerEntry(
@@ -111,7 +113,7 @@ class CollectionListViewModel(
                 val (collections, branches, ledgerEntries) = coroutineScope {
                     val collections = async { collectionRepository.getCollections().first() }
                     val branches = async { branchRepository.getBranches().first() }
-                    val ledgerEntries = async { ledgerRepository.getLedgerEntries().first() }
+                    val ledgerEntries = async { runCatching { ledgerRepository.getLedgerEntries().first() }.getOrDefault(emptyList()) }
                     Triple(collections.await(), branches.await(), ledgerEntries.await())
                 }
                 val branchById = branches.associateBy { it.id }
@@ -185,6 +187,23 @@ class CollectionListViewModel(
                         errorMessage = e.message ?: "No se pudo reversar el cobro",
                         reversingCollectionId = null
                     )
+                }
+            }
+        }
+    }
+
+    fun updateCollection(collection: Collection) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, actionSuccessMessage = null) }
+            try {
+                collectionRepository.updateCollection(collection)
+                _uiState.update {
+                    it.copy(isLoading = false, actionSuccessMessage = "Cobro actualizado correctamente")
+                }
+                refresh()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false, errorMessage = e.message ?: "No se pudo actualizar el cobro")
                 }
             }
         }

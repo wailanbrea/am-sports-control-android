@@ -1,6 +1,7 @@
 package com.example.btmcontabilidad.data.repository
 
 import android.content.Context
+import com.example.btmcontabilidad.data.session.SessionStore
 import com.example.btmcontabilidad.domain.model.Advance
 import com.example.btmcontabilidad.domain.model.Collection
 import com.example.btmcontabilidad.domain.model.LedgerEntry
@@ -25,6 +26,16 @@ class RepositoryContainer(
     val manualResultRepository: ManualResultRepository = BackendManualResultRepository(provider)
     val moneyDeliveryRepository: MoneyDeliveryRepository = BackendMoneyDeliveryRepository(provider)
     val collectorRepository: CollectorRepository = BackendCollectorRepository(provider)
+    val session: SessionStore get() = provider.session
+    val isAdmin: Boolean get() = provider.isAdmin
+    val isCollector: Boolean get() = provider.isCollector
+    fun currentUserRole(): String = provider.currentUserRole()
+
+    fun clearCaches() {
+        (branchRepository as? BackendBranchRepository)?.invalidateCache()
+        (collectorRepository as? BackendCollectorRepository)?.invalidateCache()
+        (ledgerRepository as? BackendLedgerRepository)?.invalidateCache()
+    }
 
     suspend fun dashboard(): DashboardSnapshot = provider.dashboard()
     suspend fun registerCollection(collection: Collection, createdBy: String = "SISTEMA"): Collection =
@@ -50,6 +61,12 @@ class RepositoryContainer(
         fun initialize(context: Context) {
             if (instance == null) synchronized(this) {
                 if (instance == null) instance = RepositoryContainer(context.applicationContext)
+            }
+        }
+
+        fun get(context: Context): RepositoryContainer {
+            return instance ?: synchronized(this) {
+                instance ?: RepositoryContainer(context.applicationContext).also { instance = it }
             }
         }
 

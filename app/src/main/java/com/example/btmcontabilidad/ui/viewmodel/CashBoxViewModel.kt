@@ -7,6 +7,7 @@ import com.example.btmcontabilidad.domain.calculator.FinancialCalculator
 import com.example.btmcontabilidad.domain.model.Branch
 import com.example.btmcontabilidad.domain.model.BranchStatus
 import com.example.btmcontabilidad.domain.model.CashBox
+import com.example.btmcontabilidad.domain.model.CashBoxEntity
 import com.example.btmcontabilidad.domain.model.CashMovement
 import com.example.btmcontabilidad.domain.model.CashMovementType
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,8 +24,12 @@ import java.util.Locale
 data class CashBoxUiState(
     val isLoading: Boolean = true,
     val isSubmitting: Boolean = false,
+    val isCreatingBox: Boolean = false,
+    val showCreateBoxDialog: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null,
+    val cashBoxes: List<CashBoxEntity> = emptyList(),
+    val selectedCashBoxId: Long? = null,
     val cashBox: CashBox? = null,
     val availableBranches: List<Branch> = emptyList(),
     val selectedType: CashMovementType = CashMovementType.INCOME,
@@ -33,7 +38,12 @@ data class CashBoxUiState(
     val businessDateInput: String = "",
     val reasonInput: String = "",
     val referenceInput: String = "",
-    val notesInput: String = ""
+    val notesInput: String = "",
+    // Campos para creación de nueva caja chica
+    val newBoxName: String = "",
+    val newBoxInitialBalance: String = "",
+    val newBoxDescription: String = "",
+    val newBoxIsDefault: Boolean = false
 )
 
 class CashBoxViewModel(
@@ -46,21 +56,37 @@ class CashBoxViewModel(
     )
     val uiState: StateFlow<CashBoxUiState> = _uiState.asStateFlow()
 
+    private var loadJob: kotlinx.coroutines.Job? = null
+
     init {
         refresh()
     }
 
-    fun refresh() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+    fun refresh(targetBoxId: Long? = null) {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            if (_uiState.value.cashBox == null) {
+                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            } else {
+                _uiState.update { it.copy(errorMessage = null) }
+            }
             try {
                 val branches = repositoryContainer.branchRepository.getBranches().first()
                     .filter { it.status == BranchStatus.ACTIVE }
-                val cashBox = repositoryContainer.cashBoxRepository.getCashBox().first()
+                val boxes = repositoryContainer.cashBoxRepository.getCashBoxes()
+                val currentSelectedId = targetBoxId
+                    ?: _uiState.value.selectedCashBoxId
+                    ?: boxes.firstOrNull { it.isDefault }?.id
+                    ?: boxes.firstOrNull()?.id
+
+                val cashBox = repositoryContainer.cashBoxRepository.getCashBox(currentSelectedId).first()
                 FinancialCalculator.setCurrencyCode(cashBox.currencyCode)
+
                 _uiState.update {
                     it.copy(
                         isLoading = false,
+                        cashBoxes = boxes,
+                        selectedCashBoxId = currentSelectedId,
                         cashBox = cashBox,
                         availableBranches = branches
                     )
@@ -70,6 +96,114 @@ class CashBoxViewModel(
                     it.copy(
                         isLoading = false,
                         errorMessage = exception.message ?: "No se pudo cargar la caja"
+                    )
+                }
+            }
+        }
+    }
+
+    fun selectCashBox(boxId: Long) {
+        if (_uiState.value.selectedCashBoxId == boxId) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, selectedCashBoxId = boxId, errorMessage = null) }
+            try {
+                val cashBox = repositoryContainer.cashBoxRepository.getCashBox(boxId).first()
+                FinancialCalculator.setCurrencyCode(cashBox.currencyCode)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        cashBox = cashBox
+                    )
+                }
+            } catch (exception: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = exception.message ?: "Error al cambiar de caja chica"
+                    )
+                }
+            }
+        }
+    }
+
+    fun openCreateBoxDialog() {
+        _uiState.update {
+            it.copy(
+                showCreateBoxDialog = true,
+                newBoxName = "",
+                newBoxInitialBalance = "",
+                newBoxDescription = "",
+                newBoxIsDefault = false,
+                errorMessage = null
+            )
+        }
+    }
+
+    fun closeCreateBoxDialog() {
+        _uiState.update { it.copy(showCreateBoxDialog = false) }
+    }
+
+    fun updateNewBoxName(value: String) {
+        _uiState.update { it.copy(newBoxName = value, errorMessage = null) }
+    }
+
+    fun updateNewBoxInitialBalance(value: String) {
+        _uiState.update { it.copy(newBoxInitialBalance = value, errorMessage = null) }
+    }
+
+    fun updateNewBoxDescription(value: String) {
+        _uiState.update { it.copy(newBoxDescription = value, errorMessage = null) }
+    }
+
+    fun updateNewBoxIsDefault(value: Boolean) {
+        _uiState.update { it.copy(newBoxIsDefault = value) }
+    }
+
+    fun createCashBox() {
+        val state = _uiState.value
+        val name = state.newBoxName.trim()
+        if (name.isBlank()) {
+            _uiState.update { it.copy(errorMessage = "El nombre de la caja chica es obligatorio") }
+            return
+        }
+
+        val initialBalance = if (state.newBoxInitialBalance.isNotBlank()) {
+            state.newBoxInitialBalance.trim().replace(",", ".").toBigDecimalOrNull()
+        } else {
+            BigDecimal.ZERO
+        }
+
+        if (initialBalance == null || initialBalance < BigDecimal.ZERO) {
+            _uiState.update { it.copy(errorMessage = "El saldo inicial no es un monto válido") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isCreatingBox = true, errorMessage = null) }
+            try {
+                val createdBox = repositoryContainer.cashBoxRepository.createCashBox(
+                    name = name,
+                    initialBalance = initialBalance,
+                    description = state.newBoxDescription.trim().ifBlank { null },
+                    isDefault = state.newBoxIsDefault
+                )
+                _uiState.update {
+                    it.copy(
+                        isCreatingBox = false,
+                        showCreateBoxDialog = false,
+                        newBoxName = "",
+                        newBoxInitialBalance = "",
+                        newBoxDescription = "",
+                        newBoxIsDefault = false,
+                        successMessage = "Caja chica '${createdBox.name}' creada exitosamente"
+                    )
+                }
+                refresh(targetBoxId = createdBox.id)
+            } catch (exception: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isCreatingBox = false,
+                        errorMessage = exception.message ?: "Error al crear la caja chica"
                     )
                 }
             }
@@ -118,7 +252,7 @@ class CashBoxViewModel(
     fun submit() {
         viewModelScope.launch {
             val state = _uiState.value
-            val amount = state.amountInput.trim().toBigDecimalOrNull()
+            val amount = state.amountInput.trim().replace(",", ".").toBigDecimalOrNull()
             val validationError = when {
                 amount == null || amount <= BigDecimal.ZERO -> "El monto debe ser mayor a cero"
                 !isValidBusinessDate(state.businessDateInput) -> "La fecha debe tener el formato yyyy-MM-dd"
@@ -147,10 +281,11 @@ class CashBoxViewModel(
                     notes = state.notesInput.trim().ifBlank { null }
                 )
 
+                val targetBoxId = state.selectedCashBoxId
                 when (movement.type) {
-                    CashMovementType.INCOME -> repositoryContainer.cashBoxRepository.addIncome(movement)
-                    CashMovementType.EXPENSE -> repositoryContainer.cashBoxRepository.addExpense(movement)
-                    CashMovementType.BRANCH_TRANSFER -> repositoryContainer.cashBoxRepository.transferToBranch(movement)
+                    CashMovementType.INCOME -> repositoryContainer.cashBoxRepository.addIncome(movement, targetBoxId)
+                    CashMovementType.EXPENSE -> repositoryContainer.cashBoxRepository.addExpense(movement, targetBoxId)
+                    CashMovementType.BRANCH_TRANSFER -> repositoryContainer.cashBoxRepository.transferToBranch(movement, targetBoxId)
                 }
 
                 _uiState.update {
@@ -163,7 +298,7 @@ class CashBoxViewModel(
                         successMessage = "${movement.type.label} registrada correctamente"
                     )
                 }
-                refresh()
+                refresh(targetBoxId)
             } catch (exception: Exception) {
                 _uiState.update {
                     it.copy(

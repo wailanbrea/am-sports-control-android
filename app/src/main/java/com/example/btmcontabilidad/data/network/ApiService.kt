@@ -55,6 +55,13 @@ interface ApiService {
         @Path("branchId") branchId: String
     ): Response<ApiEnvelope<Any>>
 
+    @POST("branches/{branchId}/assign-collector")
+    suspend fun assignCollector(
+        @Header("Authorization") bearerToken: String,
+        @Path("branchId") branchId: String,
+        @Body request: AssignCollectorRequest
+    ): Response<ApiEnvelope<BranchResponse>>
+
     @GET("ledger")
     suspend fun ledger(
         @Header("Authorization") bearerToken: String,
@@ -66,6 +73,13 @@ interface ApiService {
         @Header("Authorization") bearerToken: String,
         @Header("Idempotency-Key") idempotencyKey: String,
         @Body request: CreateCollectionRequest
+    ): Response<ApiEnvelope<CollectionResponse>>
+
+    @PUT("collections/{collectionId}")
+    suspend fun updateCollection(
+        @Header("Authorization") bearerToken: String,
+        @Path("collectionId") collectionId: String,
+        @Body request: UpdateCollectionRequest
     ): Response<ApiEnvelope<CollectionResponse>>
 
     @POST("advances")
@@ -96,9 +110,22 @@ interface ApiService {
         @Body request: CreateReversalRequest
     ): Response<ApiEnvelope<LedgerEntryResponse>>
 
+    @GET("cash-boxes")
+    suspend fun cashBoxes(
+        @Header("Authorization") bearerToken: String
+    ): Response<ApiEnvelope<CashBoxesPayload>>
+
+    @POST("cash-boxes")
+    suspend fun createCashBox(
+        @Header("Authorization") bearerToken: String,
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Body request: CreateCashBoxRequest
+    ): Response<ApiEnvelope<CashBoxDto>>
+
     @GET("cash-box")
     suspend fun cashBox(
-        @Header("Authorization") bearerToken: String
+        @Header("Authorization") bearerToken: String,
+        @Query("cash_box_id") cashBoxId: Long? = null
     ): Response<ApiEnvelope<CashBoxResponse>>
 
     @POST("cash-box/income")
@@ -167,6 +194,13 @@ interface ApiService {
         @Path("id") id: Long,
         @Body request: UpdateCollectorRequest
     ): Response<ApiEnvelope<CollectorDto>>
+
+    @POST("collectors/{collectorId}/assign-branches")
+    suspend fun assignBranches(
+        @Header("Authorization") bearerToken: String,
+        @Path("collectorId") collectorId: Long,
+        @Body request: AssignBranchesRequest
+    ): Response<ApiEnvelope<Any>>
 }
 
 @JsonClass(generateAdapter = true)
@@ -179,7 +213,10 @@ data class LoginRequest(val email: String, val password: String, val device_name
 data class LoginData(val token: String, val user: ApiUser)
 
 @JsonClass(generateAdapter = true)
-data class ApiUser(val id: Long, val name: String, val email: String)
+data class ApiUser(val id: Long, val name: String, val email: String, val role: String? = null)
+
+@JsonClass(generateAdapter = true)
+data class ApiCreator(val id: Long? = null, val name: String? = null, val email: String? = null)
 
 @JsonClass(generateAdapter = true)
 data class CollectorDto(
@@ -188,7 +225,18 @@ data class CollectorDto(
     val email: String,
     val role: String,
     val status: String,
-    val created_at: String? = null
+    val created_at: String? = null,
+    val assigned_branches_count: Int? = 0
+)
+
+@JsonClass(generateAdapter = true)
+data class AssignCollectorRequest(
+    val collector_user_id: Long?
+)
+
+@JsonClass(generateAdapter = true)
+data class AssignBranchesRequest(
+    val branch_ids: List<Long>
 )
 
 @JsonClass(generateAdapter = true)
@@ -217,6 +265,16 @@ data class CreateCollectionRequest(
     val business_date: String,
     val payment_method: String,
     val reference: String? = null,
+    val notes: String? = null,
+    val force_overcollection: Boolean? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class UpdateCollectionRequest(
+    val amount: String,
+    val business_date: String,
+    val payment_method: String,
+    val reference: String? = null,
     val notes: String? = null
 )
 
@@ -229,7 +287,9 @@ data class CollectionResponse(
     val reference: String? = null,
     val business_date: String? = null,
     val notes: String? = null,
-    val status: String? = null
+    val status: String? = null,
+    val creator_name: String? = null,
+    val creator: ApiCreator? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -275,17 +335,45 @@ data class WeeklySettlementResponse(
 data class CreateReversalRequest(val business_date: String, val reason: String)
 
 @JsonClass(generateAdapter = true)
+data class CashBoxDto(
+    val id: Long,
+    val name: String,
+    val balance: String? = null,
+    val currency_code: String? = null,
+    val is_default: Boolean = false,
+    val description: String? = null,
+    val status: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class CashBoxesPayload(
+    val total_balance: String? = null,
+    val currency_code: String? = null,
+    val boxes: List<CashBoxDto>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class CreateCashBoxRequest(
+    val name: String,
+    val initial_balance: String = "0.00",
+    val description: String? = null,
+    val is_default: Boolean = false
+)
+
+@JsonClass(generateAdapter = true)
 data class CashMovementRequest(
     val amount: String,
     val business_date: String,
     val reason: String,
     val branch_id: Long? = null,
+    val cash_box_id: Long? = null,
     val reference: String? = null,
     val notes: String? = null
 )
 
 @JsonClass(generateAdapter = true)
 data class CashBoxResponse(
+    val cash_box: CashBoxDto? = null,
     val currency_code: String?,
     val current_balance: String?,
     val entries: List<CashMovementResponse>?
@@ -297,12 +385,17 @@ data class CashMovementResponse(
     val type: String? = null,
     val movement_type: String? = null,
     val amount: String?,
+    val signed_amount: String? = null,
+    val balance_before: String? = null,
+    val balance_after: String? = null,
     val business_date: String?,
     val reason: String? = null,
     val branch_id: Long? = null,
     val reference: String? = null,
     val notes: String? = null,
-    val created_at: String? = null
+    val created_at: String? = null,
+    val creator_name: String? = null,
+    val creator: ApiCreator? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -313,11 +406,17 @@ data class BranchResponse(
     val phone: String? = null,
     val owner_name: String? = null,
     val owner_phone: String? = null,
+    val owner_whatsapp: String? = null,
+    val address: String? = null,
     val description: String? = null,
     val route: String? = null,
     val operator_name: String? = null,
     val current_balance: String? = null,
+    val commission_rate: String? = null,
     val status: String? = null,
+    val collector_user_id: Long? = null,
+    val collector_name: String? = null,
+    val collector: ApiUser? = null,
     val collections: List<CollectionResponse>? = null,
     val advances: List<AdvanceResponse>? = null,
     val weekly_settlements: List<WeeklySettlementResponse>? = null,
@@ -331,10 +430,14 @@ data class BranchRequest(
     val phone: String? = null,
     val owner_name: String? = null,
     val owner_phone: String? = null,
+    val owner_whatsapp: String? = null,
+    val address: String? = null,
     val description: String? = null,
     val route: String? = null,
     val operator_name: String? = null,
-    val status: String = "active"
+    val commission_rate: String? = null,
+    val status: String = "active",
+    val collector_user_id: Long? = null
 )
 
 
@@ -346,7 +449,9 @@ data class AdvanceResponse(
     val reason: String? = null,
     val business_date: String? = null,
     val notes: String? = null,
-    val status: String? = null
+    val status: String? = null,
+    val creator_name: String? = null,
+    val creator: ApiCreator? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -361,7 +466,8 @@ data class LedgerEntryResponse(
     val balance_after: String? = null,
     val business_date: String? = null,
     val description: String? = null,
-    val created_by: String? = null,
+    val creator_name: String? = null,
+    val creator: ApiCreator? = null,
     val reversal_of_entry_id: Long? = null
 )
 
@@ -383,6 +489,7 @@ data class DashboardResponse(
     val total_money_delivered_this_month: String? = null,
     val total_collected_this_week: String? = null,
     val total_collected_this_month: String? = null,
+    val cash_balance: String? = null,
     val recent_activity: List<LedgerEntryResponse>? = null
 )
 
@@ -411,8 +518,12 @@ data class ManualResultResponse(
 data class CreateMoneyDeliveryRequest(
     val branch_id: Long,
     val amount: String,
+    val gross_amount: String? = null,
+    val commission_rate: String? = null,
+    val commission_amount: String? = null,
     val suggested_amount: String? = null,
     val manual_result_id: Long? = null,
+    val cash_box_id: Long? = null,
     val business_date: String,
     val reason: String,
     val notes: String? = null
@@ -424,12 +535,17 @@ data class MoneyDeliveryResponse(
     val branch_id: Long?,
     val manual_result_id: Long? = null,
     val suggested_amount: String? = null,
+    val gross_amount: String? = null,
+    val commission_rate: String? = null,
+    val commission_amount: String? = null,
     val delivered_amount: String?,
     val business_date: String?,
     val reason: String?,
     val notes: String? = null,
     val status: String? = null,
-    val branch_balance_after: String? = null
+    val branch_balance_after: String? = null,
+    val creator_name: String? = null,
+    val creator: ApiCreator? = null
 )
 
 @JsonClass(generateAdapter = true)

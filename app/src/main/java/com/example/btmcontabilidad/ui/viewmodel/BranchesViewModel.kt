@@ -34,7 +34,9 @@ data class BranchesUiState(
     val countPorCobrar: Int = 0,
     val countPorEnviar: Int = 0,
     val countSaldadas: Int = 0,
-    val countInactivas: Int = 0
+    val countInactivas: Int = 0,
+    val isAdmin: Boolean = false,
+    val collectors: List<com.example.btmcontabilidad.data.network.CollectorDto> = emptyList()
 )
 
 class BranchesViewModel(
@@ -46,15 +48,42 @@ class BranchesViewModel(
 
     init {
         loadBranches()
+        loadCollectors()
     }
 
     fun refresh() {
-        loadBranches()
+        repositoryContainer.clearCaches()
+        loadBranches(forceRefresh = true)
+        loadCollectors()
     }
 
-    fun loadBranches() {
+    fun loadCollectors() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            try {
+                repositoryContainer.collectorRepository.getCollectors().collect { list ->
+                    _uiState.update { it.copy(collectors = list) }
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    private var loadBranchesJob: kotlinx.coroutines.Job? = null
+
+    fun loadBranches(forceRefresh: Boolean = false) {
+        val currentIsAdmin = repositoryContainer.isAdmin
+        val roleMismatch = _uiState.value.isAdmin != currentIsAdmin
+        if (!forceRefresh && !roleMismatch && loadBranchesJob?.isActive == true && _uiState.value.branches.isNotEmpty()) {
+            return
+        }
+        loadBranchesJob?.cancel()
+        loadBranchesJob = viewModelScope.launch {
+            val isAdmin = currentIsAdmin
+            val hasExistingData = _uiState.value.branches.isNotEmpty() && !roleMismatch && !forceRefresh
+            if (!hasExistingData) {
+                _uiState.update { it.copy(isLoading = true, errorMessage = null, isAdmin = isAdmin, branches = emptyList(), filteredBranches = emptyList()) }
+            } else {
+                _uiState.update { it.copy(isAdmin = isAdmin) }
+            }
             try {
                 repositoryContainer.branchRepository.getBranches().collect { branchList ->
                     var porCobrar = BigDecimal.ZERO
@@ -89,6 +118,7 @@ class BranchesViewModel(
 
                     val currentState = _uiState.value.copy(
                         isLoading = false,
+                        isAdmin = isAdmin,
                         branches = branchList,
                         totalPorCobrar = FinancialCalculator.roundMoney(porCobrar),
                         totalPorEnviar = FinancialCalculator.roundMoney(porEnviar),
@@ -132,17 +162,37 @@ class BranchesViewModel(
         }
     }
 
+    fun assignCollector(branchId: String, collectorUserId: Long?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            try {
+                repositoryContainer.branchRepository.assignCollector(branchId, collectorUserId)
+                loadBranches()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "Error al asignar cobrador") }
+            }
+        }
+    }
+
     private fun applyFilterAndSearch(state: BranchesUiState): BranchesUiState {
         val query = state.searchQuery.trim().lowercase()
 
         val filtered = state.branches.filter { branch ->
+            val rounded = FinancialCalculator.roundMoney(branch.currentBalance)
+
+            // Los cobradores ven únicamente las bancas activas que tengan asignadas (filtradas por backend)
+            if (!state.isAdmin) {
+                if (branch.status != BranchStatus.ACTIVE) {
+                    return@filter false
+                }
+            }
+
             val matchesQuery = query.isBlank() ||
                     branch.code.lowercase().contains(query) ||
                     branch.name.lowercase().contains(query) ||
                     branch.operatorName.lowercase().contains(query) ||
                     branch.route.lowercase().contains(query)
 
-            val rounded = FinancialCalculator.roundMoney(branch.currentBalance)
             val matchesTab = when (state.selectedTab) {
                 BranchFilterTab.TODAS -> true
                 BranchFilterTab.POR_COBRAR -> branch.status == BranchStatus.ACTIVE && rounded > BigDecimal.ZERO

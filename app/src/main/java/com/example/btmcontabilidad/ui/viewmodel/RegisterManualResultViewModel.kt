@@ -15,9 +15,15 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+enum class ManualResultType {
+    PROFIT,
+    LOSS
+}
+
 data class ManualResultUiState(
     val branchId: String = "",
     val previousBalance: BigDecimal = BigDecimal.ZERO,
+    val resultType: ManualResultType = ManualResultType.PROFIT,
     val amountInput: String = "",
     val businessDate: String = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()),
     val notesInput: String = "",
@@ -27,8 +33,22 @@ data class ManualResultUiState(
     val savedResult: ManualResultEntry? = null,
     val showLossPrompt: Boolean = false
 ) {
+    val rawAmountValue: BigDecimal?
+        get() = amountInput.trim()
+            .replace(",", ".")
+            .replace("+", "")
+            .replace("-", "")
+            .toBigDecimalOrNull()
+
     val amountValue: BigDecimal?
-        get() = amountInput.trim().replace(",", ".").toBigDecimalOrNull()
+        get() {
+            val raw = rawAmountValue ?: return null
+            return if (resultType == ManualResultType.LOSS) {
+                -raw.abs()
+            } else {
+                raw.abs()
+            }
+        }
 
     val isNegative: Boolean
         get() = (amountValue ?: BigDecimal.ZERO) < BigDecimal.ZERO
@@ -54,8 +74,27 @@ class RegisterManualResultViewModel(
         )
     }
 
+    fun setResultType(type: ManualResultType) {
+        _uiState.update { it.copy(resultType = type, errorMessage = null) }
+    }
+
     fun updateAmount(input: String) {
-        _uiState.update { it.copy(amountInput = input, errorMessage = null) }
+        var sanitized = input
+        var detectedType = _uiState.value.resultType
+        if (sanitized.contains("-")) {
+            detectedType = ManualResultType.LOSS
+            sanitized = sanitized.replace("-", "")
+        } else if (sanitized.contains("+")) {
+            detectedType = ManualResultType.PROFIT
+            sanitized = sanitized.replace("+", "")
+        }
+        _uiState.update {
+            it.copy(
+                amountInput = sanitized,
+                resultType = detectedType,
+                errorMessage = null
+            )
+        }
     }
 
     fun updateDate(date: String) {

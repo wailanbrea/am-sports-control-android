@@ -4,12 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.btmcontabilidad.data.repository.RepositoryContainer
 import com.example.btmcontabilidad.domain.calculator.FinancialCalculator
+import com.example.btmcontabilidad.domain.model.Branch
 import com.example.btmcontabilidad.domain.model.LedgerEntry
 import com.example.btmcontabilidad.domain.model.LedgerEntryType
 import com.example.btmcontabilidad.domain.model.LedgerSourceType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -30,7 +32,8 @@ data class LedgerUiState(
     val selectedBranchId: String? = null,
     val searchQuery: String = "",
     val totalDebits: BigDecimal = BigDecimal.ZERO,
-    val totalCredits: BigDecimal = BigDecimal.ZERO
+    val totalCredits: BigDecimal = BigDecimal.ZERO,
+    val branchesMap: Map<String, Branch> = emptyMap()
 )
 
 class LedgerViewModel(
@@ -48,10 +51,22 @@ class LedgerViewModel(
         loadLedgerEntries()
     }
 
+    private var loadJob: kotlinx.coroutines.Job? = null
+
     fun loadLedgerEntries() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        if (loadJob?.isActive == true && _uiState.value.entries.isNotEmpty()) {
+            return
+        }
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            val hasExisting = _uiState.value.entries.isNotEmpty()
+            if (!hasExisting) {
+                _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            }
             try {
+                val branches = repositoryContainer.branchRepository.getBranches().firstOrNull() ?: emptyList()
+                val branchesMap = branches.associateBy { it.id }
+
                 repositoryContainer.ledgerRepository.getLedgerEntries().collect { entryList ->
                     var debits = BigDecimal.ZERO
                     var credits = BigDecimal.ZERO
@@ -67,6 +82,7 @@ class LedgerViewModel(
                     val updatedState = _uiState.value.copy(
                         isLoading = false,
                         entries = entryList,
+                        branchesMap = branchesMap,
                         totalDebits = FinancialCalculator.roundMoney(debits),
                         totalCredits = FinancialCalculator.roundMoney(credits)
                     )

@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -18,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalAtm
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Refresh
@@ -86,6 +89,7 @@ fun CollectionListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedItem by remember { mutableStateOf<CollectionListItem?>(null) }
+    var selectedItemToEdit by remember { mutableStateOf<CollectionListItem?>(null) }
 
     RecordMessages(
         errorMessage = uiState.errorMessage,
@@ -93,6 +97,18 @@ fun CollectionListScreen(
         snackbarHostState = snackbarHostState,
         clearSuccessMessage = viewModel::clearSuccessMessage
     )
+
+    selectedItemToEdit?.let { item ->
+        com.example.btmcontabilidad.ui.components.EditCollectionDialog(
+            collection = item.collection,
+            branchName = item.branch?.let { "${it.code} - ${it.name}" } ?: "Banca #${item.collection.branchId}",
+            onDismiss = { selectedItemToEdit = null },
+            onConfirm = { updated ->
+                selectedItemToEdit = null
+                viewModel.updateCollection(updated)
+            }
+        )
+    }
 
     uiState.items.firstOrNull { it.collection.id == selectedItem?.collection?.id }
         ?.reversibleLedgerEntry
@@ -136,6 +152,7 @@ fun CollectionListScreen(
             onFilterChanged = viewModel::setFilter,
             onRefresh = viewModel::refresh,
             onReverse = { item -> if (item.reversibleLedgerEntry != null) selectedItem = item },
+            onEdit = { item -> selectedItemToEdit = item },
             modifier = Modifier.padding(innerPadding)
         )
     }
@@ -148,6 +165,7 @@ private fun CollectionListContent(
     onFilterChanged: (CollectionListFilter) -> Unit,
     onRefresh: () -> Unit,
     onReverse: (CollectionListItem) -> Unit,
+    onEdit: (CollectionListItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (uiState.isLoading && uiState.items.isEmpty()) {
@@ -186,7 +204,14 @@ private fun CollectionListContent(
             item { EmptyContent("No hay cobros que coincidan con los filtros") }
         } else {
             items(uiState.filteredItems, key = { it.collection.id }) { item ->
-                CollectionCard(item = item, onReverse = { onReverse(item) })
+                CollectionCard(
+                    item = item,
+                    canReverse = uiState.isAdmin && item.reversibleLedgerEntry != null,
+                    canEdit = uiState.isAdmin,
+                    isAdmin = uiState.isAdmin,
+                    onReverse = { onReverse(item) },
+                    onEdit = { onEdit(item) }
+                )
             }
         }
         item { Spacer(modifier = Modifier.height(20.dp)) }
@@ -252,7 +277,7 @@ fun AdvanceListScreen(
             onSearchChanged = viewModel::setSearchQuery,
             onFilterChanged = viewModel::setFilter,
             onRefresh = viewModel::refresh,
-            onReverse = { item -> if (item.reversibleLedgerEntry != null) selectedItem = item },
+            onReverse = { item -> if (uiState.isAdmin && item.reversibleLedgerEntry != null) selectedItem = item },
             modifier = Modifier.padding(innerPadding)
         )
     }
@@ -303,7 +328,12 @@ private fun AdvanceListContent(
             item { EmptyContent("No hay adelantos que coincidan con los filtros") }
         } else {
             items(uiState.filteredItems, key = { it.advance.id }) { item ->
-                AdvanceCard(item = item, onReverse = { onReverse(item) })
+                AdvanceCard(
+                    item = item,
+                    canReverse = uiState.isAdmin && item.reversibleLedgerEntry != null,
+                    isAdmin = uiState.isAdmin,
+                    onReverse = { onReverse(item) }
+                )
             }
         }
         item { Spacer(modifier = Modifier.height(20.dp)) }
@@ -311,7 +341,14 @@ private fun AdvanceListContent(
 }
 
 @Composable
-private fun CollectionCard(item: CollectionListItem, onReverse: () -> Unit) {
+private fun CollectionCard(
+    item: CollectionListItem,
+    canReverse: Boolean,
+    canEdit: Boolean = false,
+    isAdmin: Boolean = false,
+    onReverse: () -> Unit,
+    onEdit: () -> Unit = {}
+) {
     val collection = item.collection
     RecordCard(
         icon = Icons.Default.Payments,
@@ -326,13 +363,21 @@ private fun CollectionCard(item: CollectionListItem, onReverse: () -> Unit) {
             collection.reference?.takeIf { it.isNotBlank() }?.let { "Referencia: $it" },
             collection.notes?.takeIf { it.isNotBlank() }?.let { "Detalle: $it" }
         ).joinToString(" • "),
-        canReverse = item.reversibleLedgerEntry != null,
-        onReverse = onReverse
+        canReverse = canReverse,
+        canEdit = canEdit,
+        isAdmin = isAdmin,
+        onReverse = onReverse,
+        onEdit = onEdit
     )
 }
 
 @Composable
-private fun AdvanceCard(item: AdvanceListItem, onReverse: () -> Unit) {
+private fun AdvanceCard(
+    item: AdvanceListItem,
+    canReverse: Boolean,
+    isAdmin: Boolean = false,
+    onReverse: () -> Unit
+) {
     val advance = item.advance
     RecordCard(
         icon = Icons.Default.LocalAtm,
@@ -346,7 +391,8 @@ private fun AdvanceCard(item: AdvanceListItem, onReverse: () -> Unit) {
             "Motivo: ${advance.reason}",
             advance.notes?.takeIf { it.isNotBlank() }?.let { "Detalle: $it" }
         ).joinToString(" • "),
-        canReverse = item.reversibleLedgerEntry != null,
+        canReverse = canReverse,
+        isAdmin = isAdmin,
         onReverse = onReverse
     )
 }
@@ -362,7 +408,10 @@ private fun RecordCard(
     statusColors: StatusColors,
     detail: String,
     canReverse: Boolean,
-    onReverse: () -> Unit
+    canEdit: Boolean = false,
+    isAdmin: Boolean = false,
+    onReverse: () -> Unit,
+    onEdit: (() -> Unit)? = null
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -400,7 +449,35 @@ private fun RecordCard(
                 }
             }
             Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (canReverse) {
+            if (canEdit && onEdit != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onEdit,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryBlue),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Editar Recibo")
+                    }
+                    if (canReverse) {
+                        OutlinedButton(
+                            onClick = onReverse,
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusAlertContent),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Reversar")
+                        }
+                    }
+                }
+            } else if (canReverse) {
                 OutlinedButton(
                     onClick = onReverse,
                     modifier = Modifier.fillMaxWidth(),
@@ -412,7 +489,7 @@ private fun RecordCard(
                     Spacer(modifier = Modifier.padding(horizontal = 3.dp))
                     Text("Reversar asiento")
                 }
-            } else {
+            } else if (isAdmin) {
                 Text(
                     "Sin asiento activo para reversar",
                     style = MaterialTheme.typography.labelSmall,

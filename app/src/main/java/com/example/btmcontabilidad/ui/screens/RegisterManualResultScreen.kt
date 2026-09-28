@@ -1,6 +1,8 @@
 package com.example.btmcontabilidad.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +18,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -53,6 +57,7 @@ import com.example.btmcontabilidad.ui.theme.StatusAlertBg
 import com.example.btmcontabilidad.ui.theme.StatusAlertContent
 import com.example.btmcontabilidad.ui.theme.StatusReadyBg
 import com.example.btmcontabilidad.ui.theme.StatusReadyContent
+import com.example.btmcontabilidad.ui.viewmodel.ManualResultType
 import com.example.btmcontabilidad.ui.viewmodel.RegisterManualResultViewModel
 import java.math.BigDecimal
 
@@ -139,16 +144,121 @@ fun RegisterManualResultScreen(
             }
 
             item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Tipo de Resultado",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        val isProfit = state.resultType == ManualResultType.PROFIT
+                        val isLoss = state.resultType == ManualResultType.LOSS
+
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { viewModel.setResultType(ManualResultType.PROFIT) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isProfit) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(
+                                width = if (isProfit) 2.dp else 1.dp,
+                                color = if (isProfit) Color(0xFF2E7D32) else Color.LightGray.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.TrendingUp,
+                                    contentDescription = null,
+                                    tint = if (isProfit) Color(0xFF1B5E20) else Color.Gray,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.size(6.dp))
+                                Text(
+                                    text = "+ Ganancia",
+                                    fontWeight = if (isProfit) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isProfit) Color(0xFF1B5E20) else Color.Gray,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { viewModel.setResultType(ManualResultType.LOSS) },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isLoss) Color(0xFFFEECEB) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            border = BorderStroke(
+                                width = if (isLoss) 2.dp else 1.dp,
+                                color = if (isLoss) Color(0xFFC62828) else Color.LightGray.copy(alpha = 0.5f)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.TrendingDown,
+                                    contentDescription = null,
+                                    tint = if (isLoss) Color(0xFFB71C1C) else Color.Gray,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.size(6.dp))
+                                Text(
+                                    text = "- Pérdida",
+                                    fontWeight = if (isLoss) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (isLoss) Color(0xFFB71C1C) else Color.Gray,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            item {
                 OutlinedTextField(
                     value = state.amountInput,
                     onValueChange = viewModel::updateAmount,
-                    label = { Text("Resultado manual final ($)") },
-                    placeholder = { Text("Ej: -1663 ó +1400") },
+                    label = {
+                        Text(
+                            if (state.resultType == ManualResultType.LOSS) "Monto de pérdida en banca ($)"
+                            else "Monto de ganancia en banca ($)"
+                        )
+                    },
+                    placeholder = {
+                        Text(
+                            if (state.resultType == ManualResultType.LOSS) "Ej: 1663.00"
+                            else "Ej: 1400.00"
+                        )
+                    },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
-                    leadingIcon = { Icon(Icons.Default.AttachMoney, contentDescription = null) }
+                    leadingIcon = {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (state.resultType == ManualResultType.LOSS) StatusAlertBg else StatusReadyBg,
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Text(
+                                text = if (state.resultType == ManualResultType.LOSS) " - $ " else " + $ ",
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (state.resultType == ManualResultType.LOSS) StatusAlertContent else StatusReadyContent,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
+                    }
                 )
             }
 
@@ -258,33 +368,221 @@ fun RegisterManualResultScreen(
     }
 
     if (state.showLossPrompt) {
-        val loss = (state.amountValue ?: BigDecimal.ZERO).abs().toPlainString()
+        val lossAmount = (state.amountValue ?: BigDecimal.ZERO).abs()
+        val prevDebt = state.previousBalance.coerceAtLeast(BigDecimal.ZERO)
+        val coveredByDebt = lossAmount.min(prevDebt)
+        val neededFromCashBox = (lossAmount - coveredByDebt).coerceAtLeast(BigDecimal.ZERO)
+
+        val lossFormatted = FinancialCalculator.formatCurrency(lossAmount)
+        val coveredFormatted = FinancialCalculator.formatCurrency(coveredByDebt)
+        val neededFromCashBoxFormatted = FinancialCalculator.formatCurrency(neededFromCashBox)
+        val prevDebtFormatted = FinancialCalculator.formatCurrency(state.previousBalance)
+        val newBalanceFormatted = FinancialCalculator.formatCurrency(state.projectedBalance)
+
         AlertDialog(
             onDismissRequest = onSaved,
-            title = { Text("Pérdida Registrada", fontWeight = FontWeight.Bold) },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.TrendingDown,
+                        contentDescription = null,
+                        tint = Color(0xFFC62828),
+                        modifier = Modifier.size(26.dp)
+                    )
+                    Text(
+                        text = if (neededFromCashBox == BigDecimal.ZERO) "Pérdida Cubierta con Deuda"
+                        else if (coveredByDebt > BigDecimal.ZERO) "Compensación Mixta Automática"
+                        else "Retiro de Caja Chica Requerido",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            },
             text = {
-                Text(
-                    "La banca presenta una pérdida de ${FinancialCalculator.formatCurrency((state.amountValue ?: BigDecimal.ZERO).abs())}.\n\n" +
-                            "¿Deseas registrar el dinero llevado a esta banca ahora mismo?"
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "Pérdida registrada: $lossFormatted\nBalance previo de la banca: $prevDebtFormatted",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    // CASO 1: Cubierto al 100% por la deuda existente (ej: 6169 deuda, 516 pérdida)
+                    if (neededFromCashBox == BigDecimal.ZERO) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSaved() },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                            border = BorderStroke(1.5.dp, Color(0xFF2E7D32))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.TrendingUp,
+                                        contentDescription = null,
+                                        tint = Color(0xFF1B5E20),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "100% Atribuido al Balance",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF1B5E20),
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                }
+                                Text(
+                                    text = "• Al Balance: -$lossFormatted descontados de la deuda.\n• Nuevo balance adeudado: $newBalanceFormatted.\n• Caja Chica: $0.00 (No requiere retiro de efectivo).",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF2E7D32)
+                                )
+                            }
+                        }
+                    }
+
+                    // CASO 2: Compensación Mixta (ej: 100 balance, 200 pérdida -> 100 balance, 100 caja chica)
+                    else if (coveredByDebt > BigDecimal.ZERO) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F8E9)),
+                            border = BorderStroke(1.dp, Color(0xFF689F38))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = "Desglose Automático de la Pérdida:",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = Color(0xFF33691E)
+                                )
+                                Text(
+                                    text = "1. Al Balance: $coveredFormatted descontados de la deuda (la deuda queda en $0.00).\n" +
+                                            "2. De Caja Chica: $neededFromCashBoxFormatted faltantes a retirar para entregar a la banca.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF33691E)
+                                )
+                            }
+                        }
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onNavigateToMoneyDelivery(
+                                        state.branchId,
+                                        neededFromCashBox.toPlainString(),
+                                        state.savedResult?.id
+                                    )
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                            border = BorderStroke(1.5.dp, Color(0xFFE65100))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AttachMoney,
+                                        contentDescription = null,
+                                        tint = Color(0xFFE65100),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "Retirar $neededFromCashBoxFormatted de Caja Chica",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFBF360C),
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                }
+                                Text(
+                                    text = "Registrar la salida física de los $neededFromCashBoxFormatted restantes para la banca.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFFBF360C)
+                                )
+                            }
+                        }
+                    }
+
+                    // CASO 3: Sin deuda previa (balance <= 0, ej: 0 balance, 200 pérdida -> 200 caja chica)
+                    else {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    onNavigateToMoneyDelivery(
+                                        state.branchId,
+                                        lossAmount.toPlainString(),
+                                        state.savedResult?.id
+                                    )
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                            border = BorderStroke(1.5.dp, Color(0xFFE65100))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AttachMoney,
+                                        contentDescription = null,
+                                        tint = Color(0xFFE65100),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "Retirar $lossFormatted de Caja Chica",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFBF360C),
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                }
+                                Text(
+                                    text = "La banca no tiene deuda disponible. Los $lossFormatted deben salir de Caja Chica.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFFBF360C)
+                                )
+                            }
+                        }
+                    }
+                }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        onNavigateToMoneyDelivery(
-                            state.branchId,
-                            loss,
-                            state.savedResult?.id
-                        )
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-                ) {
-                    Text("Registrar Ahora")
+                if (neededFromCashBox == BigDecimal.ZERO) {
+                    Button(
+                        onClick = onSaved,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                    ) {
+                        Text("Aceptar y Finalizar")
+                    }
                 }
             },
             dismissButton = {
-                OutlinedButton(onClick = onSaved) {
-                    Text("Más tarde")
+                OutlinedButton(
+                    onClick = onSaved,
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(if (neededFromCashBox == BigDecimal.ZERO) "Cerrar" else "Omitir Retiro (Solo Balance)")
                 }
             }
         )

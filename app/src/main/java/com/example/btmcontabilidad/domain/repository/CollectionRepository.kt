@@ -8,5 +8,7 @@ interface CollectionRepository {
     fun getCollectionsForBranch(branchId: String): Flow<List<Collection>>
     fun getCollectionById(id: String): Flow<Collection?>
     suspend fun addCollection(collection: Collection): Collection
+    suspend fun updateCollection(collection: Collection): Collection
     suspend fun cancelCollection(id: String, reason: String): Collection
 }
+

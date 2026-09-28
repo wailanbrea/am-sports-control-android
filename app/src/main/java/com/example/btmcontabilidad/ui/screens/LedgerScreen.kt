@@ -1,5 +1,6 @@
 package com.example.btmcontabilidad.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,13 +18,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LocalAtm
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -62,21 +68,29 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.btmcontabilidad.ui.theme.BTMContabilidadTheme
 import com.example.btmcontabilidad.domain.calculator.FinancialCalculator
 import com.example.btmcontabilidad.domain.model.LedgerEntry
 import com.example.btmcontabilidad.domain.model.LedgerEntryType
 import com.example.btmcontabilidad.domain.model.LedgerSourceType
-import com.example.btmcontabilidad.ui.theme.BTMContabilidadTheme
+import com.example.btmcontabilidad.domain.model.isCollection
+import com.example.btmcontabilidad.domain.model.isMoneyDelivery
+import com.example.btmcontabilidad.domain.model.isNegativeMovement
 import com.example.btmcontabilidad.ui.theme.DeepNavy
 import com.example.btmcontabilidad.ui.theme.PrimaryBlue
 import com.example.btmcontabilidad.ui.theme.StatusAlertBg
 import com.example.btmcontabilidad.ui.theme.StatusAlertContent
 import com.example.btmcontabilidad.ui.theme.StatusNeutralBg
 import com.example.btmcontabilidad.ui.theme.StatusNeutralContent
+import com.example.btmcontabilidad.domain.model.Branch
+import com.example.btmcontabilidad.ui.components.ReceiptData
+import com.example.btmcontabilidad.ui.components.ReceiptDialog
+import com.example.btmcontabilidad.ui.components.WhatsAppDarkGreen
 import com.example.btmcontabilidad.ui.theme.StatusReadyBg
 import com.example.btmcontabilidad.ui.theme.StatusReadyContent
 import com.example.btmcontabilidad.ui.viewmodel.LedgerTypeFilter
 import com.example.btmcontabilidad.ui.viewmodel.LedgerViewModel
+import com.example.btmcontabilidad.util.ReceiptManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,6 +100,7 @@ fun LedgerScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedEntryToReverse by remember { mutableStateOf<LedgerEntry?>(null) }
+    var selectedReceiptData by remember { mutableStateOf<ReceiptData?>(null) }
 
     LaunchedEffect(uiState.errorMessage, uiState.actionSuccessMessage) {
         uiState.errorMessage?.let {
@@ -96,6 +111,13 @@ fun LedgerScreen(
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessages()
         }
+    }
+
+    if (selectedReceiptData != null) {
+        ReceiptDialog(
+            receipt = selectedReceiptData!!,
+            onDismiss = { selectedReceiptData = null }
+        )
     }
 
     if (selectedEntryToReverse != null) {
@@ -230,14 +252,74 @@ fun LedgerScreen(
                     }
                 }
 
+                // Branch Filters
+                if (uiState.branchesMap.isNotEmpty()) {
+                    item {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            item {
+                                FilterChip(
+                                    selected = uiState.selectedBranchId == null,
+                                    onClick = { viewModel.setBranchFilter(null) },
+                                    label = { Text("Todas las bancas") }
+                                )
+                            }
+                            items(uiState.branchesMap.values.toList()) { branch ->
+                                FilterChip(
+                                    selected = uiState.selectedBranchId == branch.id,
+                                    onClick = {
+                                        if (uiState.selectedBranchId == branch.id) {
+                                            viewModel.setBranchFilter(null)
+                                        } else {
+                                            viewModel.setBranchFilter(branch.id)
+                                        }
+                                    },
+                                    label = { Text("${branch.code} - ${branch.name}") }
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // Ledger Entries List
                 items(
                     items = uiState.filteredEntries,
                     key = { it.id }
                 ) { entry ->
+                    val branch = uiState.branchesMap[entry.branchId]
                     LedgerCardItem(
                         entry = entry,
-                        onReverseClicked = { selectedEntryToReverse = entry }
+                        branch = branch,
+                        onReverseClicked = { selectedEntryToReverse = entry },
+                        onShareClicked = {
+                            val receiptText = ReceiptManager.buildLedgerReceiptText(entry, branch)
+                            selectedReceiptData = ReceiptData(
+                                title = when {
+                                    entry.isCollection() -> "COMPROBANTE DE COBRO"
+                                    entry.isMoneyDelivery() -> "COMPROBANTE DE ENTREGA"
+                                    entry.sourceType.name.contains("ADVANCE", ignoreCase = true) -> "COMPROBANTE DE ADELANTO"
+                                    entry.sourceType.name.contains("SETTLEMENT", ignoreCase = true) -> "LIQUIDACIÓN SEMANAL"
+                                    entry.sourceType.name.contains("MANUAL_RESULT", ignoreCase = true) -> "RESULTADO DE OPERACIONES"
+                                    else -> "COMPROBANTE DE MOVIMIENTO"
+                                },
+                                receiptId = entry.id,
+                                amount = entry.signedAmount.abs(),
+                                branch = branch ?: Branch(
+                                    id = entry.branchId,
+                                    code = entry.branchId,
+                                    name = "Banca ${entry.branchId}",
+                                    route = "Central",
+                                    operatorName = "Operador"
+                                ),
+                                recipientPhone = branch?.ownerPhone ?: branch?.phone,
+                                previousBalance = entry.balanceBefore,
+                                newBalance = entry.balanceAfter,
+                                concept = entry.description,
+                                reference = entry.sourceId,
+                                fullReceiptText = receiptText
+                            )
+                        }
                     )
                 }
 
@@ -252,18 +334,31 @@ fun LedgerScreen(
 @Composable
 fun LedgerCardItem(
     entry: LedgerEntry,
-    onReverseClicked: () -> Unit
+    branch: Branch? = null,
+    onReverseClicked: () -> Unit,
+    onShareClicked: () -> Unit
 ) {
+    val isNegative = entry.isNegativeMovement()
+    val isMoneyDelivery = entry.isMoneyDelivery()
+    val isCollection = entry.isCollection()
+    val amountColor = if (isNegative) StatusAlertContent else StatusReadyContent
+    val badgeBg = if (isNegative) StatusAlertBg else StatusReadyBg
+    val prefix = if (isNegative) "- " else "+ "
+    val isReversed = entry.reversalOfEntryId != null || entry.description.startsWith("Anulación")
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onShareClicked() },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            // Cabecera: Icono + Tipo + Monto Destacado
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -274,129 +369,214 @@ fun LedgerCardItem(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val (icon, tint) = when (entry.sourceType) {
-                        LedgerSourceType.COLLECTION -> Pair(Icons.Default.Payments, StatusReadyContent)
-                        LedgerSourceType.ADVANCE -> Pair(Icons.Default.LocalAtm, StatusAlertContent)
-                        else -> Pair(Icons.Default.LocalAtm, PrimaryBlue)
+                    val (icon, tint) = when {
+                        isCollection -> Pair(Icons.Default.Payments, StatusReadyContent)
+                        isMoneyDelivery -> Pair(Icons.Default.LocalAtm, StatusAlertContent)
+                        isNegative -> Pair(Icons.Default.LocalAtm, StatusAlertContent)
+                        else -> Pair(Icons.Default.Add, StatusReadyContent)
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(tint.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = badgeBg,
+                        modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(imageVector = icon, contentDescription = null, tint = tint)
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+                        }
                     }
 
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column {
+                        val typeLabel = when {
+                            isReversed -> "ANULACIÓN / REVERSO"
+                            isMoneyDelivery -> "Entrega de Premios"
+                            isCollection -> "Cobro a Banca"
+                            isNegative -> "Pérdida Operativa"
+                            else -> "Ganancia Operativa"
+                        }
                         Text(
-                            text = entry.id,
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = "Banca: ${entry.branchId}",
+                            text = typeLabel,
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
+                            color = if (isReversed) StatusAlertContent else MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                    }
-                }
-
-                val isReversed = entry.reversalOfEntryId != null || entry.description.startsWith("Anulación")
-                if (isReversed) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = StatusAlertBg
-                    ) {
                         Text(
-                            text = "ANULACIÓN / REVERSO",
+                            text = entry.businessDate.substringBefore('T'),
                             style = MaterialTheme.typography.labelSmall,
-                            color = StatusAlertContent,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
-                    }
-                } else {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = StatusNeutralBg
-                    ) {
-                        Text(
-                            text = entry.sourceType.name,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = StatusNeutralContent,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-            }
-
-            Text(
-                text = entry.description,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${entry.businessDate.substringBefore('T')} • Creado por: ${entry.createdBy}",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                val amountColor = if (entry.entryType == LedgerEntryType.CREDIT) StatusReadyContent else StatusAlertContent
-                val prefix = if (entry.entryType == LedgerEntryType.CREDIT) "- " else "+ "
 
                 Text(
                     text = "$prefix${FinancialCalculator.formatCurrency(entry.signedAmount.abs())}",
-                    modifier = Modifier.padding(start = 12.dp),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     color = amountColor,
                     maxLines = 1
                 )
             }
 
+            // Descripción
             Text(
-                text = "Balance: ${FinancialCalculator.formatCurrency(entry.balanceBefore)} → ${FinancialCalculator.formatCurrency(entry.balanceAfter)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = entry.description,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
 
-            val isReversalEntry = entry.reversalOfEntryId != null || entry.description.startsWith("Anulación")
-            if (!isReversalEntry) {
+            // Tira de Trazabilidad: Había ➔ Quedó en Banca
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedButton(
-                        onClick = onReverseClicked,
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusAlertContent)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Había:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = FinancialCalculator.formatCurrency(entry.balanceBefore),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Quedó:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = FinancialCalculator.formatCurrency(entry.balanceAfter),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PrimaryBlue
+                        )
+                    }
+                }
+            }
+
+            // Badges / Micro-pills inferiores y botón de anulación
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Storefront,
+                                contentDescription = null,
+                                modifier = Modifier.size(12.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = branch?.let { "${it.code} ${it.name}" } ?: "Banca ${entry.branchId}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    if (entry.createdBy.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = entry.createdBy,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = onShareClicked,
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Undo,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 4.dp)
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Enviar por WhatsApp",
+                            tint = WhatsAppDarkGreen,
+                            modifier = Modifier.size(16.dp)
                         )
-                        Text("Anular Transacción")
+                    }
+
+                    if (!isReversed) {
+                        OutlinedButton(
+                            onClick = onReverseClicked,
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = StatusAlertContent)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Undo,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.size(4.dp))
+                            Text("Anular", style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                 }
             }

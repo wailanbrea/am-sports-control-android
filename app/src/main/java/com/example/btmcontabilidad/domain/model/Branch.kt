@@ -18,7 +18,11 @@ data class Branch(
     val ownerPhone: String? = null,
     @Serializable(with = BigDecimalSerializer::class)
     val currentBalance: BigDecimal = BigDecimal.ZERO,
-    val status: BranchStatus = BranchStatus.ACTIVE
+    @Serializable(with = BigDecimalSerializer::class)
+    val commissionRate: BigDecimal = BigDecimal.ZERO,
+    val status: BranchStatus = BranchStatus.ACTIVE,
+    val collectorUserId: Long? = null,
+    val collectorName: String? = null
 ) {
 
     val balanceState: BalanceState

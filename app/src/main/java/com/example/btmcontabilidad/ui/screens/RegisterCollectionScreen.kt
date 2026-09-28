@@ -29,6 +29,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,6 +60,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.btmcontabilidad.domain.calculator.FinancialCalculator
 import com.example.btmcontabilidad.domain.model.PaymentMethod
+import com.example.btmcontabilidad.ui.components.ReceiptData
+import com.example.btmcontabilidad.ui.components.ReceiptDialog
 import com.example.btmcontabilidad.ui.theme.BTMContabilidadTheme
 import com.example.btmcontabilidad.ui.theme.DeepNavy
 import com.example.btmcontabilidad.ui.theme.PrimaryBlue
@@ -69,6 +73,7 @@ import com.example.btmcontabilidad.ui.theme.StatusPendingContent
 import com.example.btmcontabilidad.ui.theme.StatusReadyBg
 import com.example.btmcontabilidad.ui.theme.StatusReadyContent
 import com.example.btmcontabilidad.ui.viewmodel.CollectionViewModel
+import com.example.btmcontabilidad.util.ReceiptManager
 import java.math.BigDecimal
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,7 +88,9 @@ fun RegisterCollectionScreen(
     var expandedDropdown by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialBranchId) {
-        viewModel.loadBranches(initialBranchId)
+        if (!initialBranchId.isNullOrBlank() || uiState.availableBranches.isEmpty()) {
+            viewModel.loadBranches(initialBranchId)
+        }
     }
 
 
@@ -96,6 +103,42 @@ fun RegisterCollectionScreen(
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessages()
         }
+    }
+
+    if (uiState.collectionSaved && uiState.savedCollection != null && uiState.selectedBranch != null) {
+        val branch = uiState.selectedBranch!!
+        val saved = uiState.savedCollection!!
+        val receiptText = ReceiptManager.buildCollectionReceiptText(
+            collectionId = saved.id,
+            branch = branch,
+            amount = saved.amount,
+            paymentMethod = saved.paymentMethod,
+            reference = saved.reference,
+            notes = saved.notes,
+            previousBalance = uiState.lastPreviousBalance,
+            newBalance = uiState.lastNewBalance
+        )
+        val receiptData = ReceiptData(
+            title = "COMPROBANTE DE COBRO",
+            receiptId = saved.id,
+            amount = saved.amount,
+            branch = branch,
+            recipientPhone = branch.ownerPhone ?: branch.phone,
+            previousBalance = uiState.lastPreviousBalance,
+            newBalance = uiState.lastNewBalance,
+            paymentMethod = saved.paymentMethod.label,
+            concept = "Cobro de balance",
+            reference = saved.reference,
+            fullReceiptText = receiptText
+        )
+
+        ReceiptDialog(
+            receipt = receiptData,
+            onDismiss = {
+                viewModel.clearSavedCollection()
+                onNavigateBack()
+            }
+        )
     }
 
     Scaffold(
@@ -172,50 +215,133 @@ fun RegisterCollectionScreen(
                     }
                 }
 
-                // Current Debt / Balance Banner
+                // Current Debt / Balance Banner con Desglose Semanal vs Saldo Viejo
                 item {
                     val balance = uiState.previousBalance
+                    val (bg, fg, label) = when {
+                        balance > BigDecimal.ZERO -> Triple(StatusPendingBg, StatusPendingContent, "Por cobrar")
+                        balance < BigDecimal.ZERO -> Triple(StatusAlertBg, StatusAlertContent, "Por enviar")
+                        else -> Triple(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant, "Al día")
+                    }
+
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = DeepNavy)
                     ) {
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Column {
-                                Text(
-                                    text = "SALDO PREVIO DE LA BANCA",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = FinancialCalculator.formatCurrency(balance),
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = when {
+                                            balance > BigDecimal.ZERO -> "DEUDA TOTAL A RECOGER"
+                                            balance < BigDecimal.ZERO -> "DÉFICIT EN BANCA (PREMIOS)"
+                                            else -> "SALDO ACTUAL DE LA BANCA"
+                                        },
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.7f),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = FinancialCalculator.formatCurrency(balance),
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White
+                                    )
+                                }
+
+                                Surface(shape = RoundedCornerShape(8.dp), color = bg) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = fg,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
                             }
 
-                            val (bg, fg, label) = when {
-                                balance > BigDecimal.ZERO -> Triple(StatusPendingBg, StatusPendingContent, "Deuda pendiente")
-                                balance < BigDecimal.ZERO -> Triple(StatusReadyBg, StatusReadyContent, "A favor de la banca")
-                                else -> Triple(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant, "Al día")
-                            }
+                            // Desglose: Esta semana vs Saldo Viejo (Anterior)
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.White.copy(alpha = 0.10f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "📅 Esta semana",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.White.copy(alpha = 0.8f)
+                                        )
+                                        Text(
+                                            text = FinancialCalculator.formatCurrency(uiState.thisWeekBalance),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
 
-                            Surface(shape = RoundedCornerShape(8.dp), color = bg) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = fg,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "⏳ Saldo anterior (viejo)",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.White.copy(alpha = 0.8f)
+                                        )
+                                        Text(
+                                            text = FinancialCalculator.formatCurrency(uiState.oldBalance),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFFFFB74D)
+                                        )
+                                    }
+
+                                    HorizontalDivider(
+                                        color = Color.White.copy(alpha = 0.15f),
+                                        thickness = 1.dp
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "💰 Total a cobrar",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = FinancialCalculator.formatCurrency(balance),
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = StatusReadyBg
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -241,17 +367,92 @@ fun RegisterCollectionScreen(
                                 fontWeight = FontWeight.Bold
                             )
 
+                            // Selector de Cobrador: Solo para Administradores
+                            if (uiState.isAdmin && uiState.collectors.isNotEmpty()) {
+                                var collectorDropdownExpanded by remember { mutableStateOf(false) }
+                                ExposedDropdownMenuBox(
+                                    expanded = collectorDropdownExpanded,
+                                    onExpandedChange = { collectorDropdownExpanded = !collectorDropdownExpanded }
+                                ) {
+                                    OutlinedTextField(
+                                        value = uiState.selectedCollector?.name ?: "Seleccionar cobrador",
+                                        onValueChange = {},
+                                        readOnly = true,
+                                        label = { Text("Cobrador Responsable") },
+                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = collectorDropdownExpanded) },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    ExposedDropdownMenu(
+                                        expanded = collectorDropdownExpanded,
+                                        onDismissRequest = { collectorDropdownExpanded = false }
+                                    ) {
+                                        uiState.collectors.forEach { collector ->
+                                            DropdownMenuItem(
+                                                text = { Text(collector.name) },
+                                                onClick = {
+                                                    viewModel.selectCollector(collector)
+                                                    collectorDropdownExpanded = false
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
                             // Amount Input
                             OutlinedTextField(
                                 value = uiState.amountInput,
                                 onValueChange = { viewModel.updateAmount(it) },
                                 modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Monto Cobrado") },
+                                label = { Text("Monto a Recoger / Cobrado") },
                                  prefix = { Text("${FinancialCalculator.currencySymbol()} ", fontWeight = FontWeight.Bold) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 shape = RoundedCornerShape(12.dp),
                                 singleLine = true
                             )
+
+                            // Botones de monto rápido (Semana / Viejo / Total)
+                            if (uiState.previousBalance > BigDecimal.ZERO) {
+                                if (uiState.thisWeekBalance > BigDecimal.ZERO && uiState.oldBalance > BigDecimal.ZERO) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        androidx.compose.material3.OutlinedButton(
+                                            onClick = { viewModel.updateAmount(uiState.thisWeekBalance.toPlainString()) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = "Esta semana (${FinancialCalculator.formatCurrency(uiState.thisWeekBalance)})",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                maxLines = 1
+                                            )
+                                        }
+                                        androidx.compose.material3.OutlinedButton(
+                                            onClick = { viewModel.updateAmount(uiState.oldBalance.toPlainString()) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Text(
+                                                text = "Saldo viejo (${FinancialCalculator.formatCurrency(uiState.oldBalance)})",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                maxLines = 1
+                                            )
+                                        }
+                                    }
+                                }
+                                androidx.compose.material3.OutlinedButton(
+                                    onClick = { viewModel.updateAmount(uiState.previousBalance.toPlainString()) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Cobrar total completo (${FinancialCalculator.formatCurrency(uiState.previousBalance)})")
+                                }
+                            }
 
                             // Payment Method Filter Chips
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

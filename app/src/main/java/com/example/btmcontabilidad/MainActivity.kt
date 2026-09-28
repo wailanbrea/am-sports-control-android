@@ -54,15 +54,24 @@ private fun AppRoot() {
         isStarting = false
     }
 
+    LaunchedEffect(isAuthenticated) {
+        if (isAuthenticated) {
+            provider.fetchCurrentUser()
+        }
+    }
+
     when {
         isStarting -> StartupScreen()
         isAuthenticated -> {
-        MainAppShell(
-            onLogout = {
-                provider.logout()
-                isAuthenticated = false
+            androidx.compose.runtime.key(provider.session.userEmail() ?: "authenticated_user") {
+                MainAppShell(
+                    onLogout = {
+                        provider.logout()
+                        RepositoryContainer.get(context).clearCaches()
+                        isAuthenticated = false
+                    }
+                )
             }
-        )
         }
         else -> LoginScreen(onLoginSuccess = { isAuthenticated = true })
     }

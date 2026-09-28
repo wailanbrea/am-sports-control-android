@@ -8,6 +8,7 @@ import com.example.btmcontabilidad.domain.model.WeeklySettlement
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -56,6 +57,13 @@ class WeeklySettlementViewModel(
             previousBalance = previousBalance,
             projectedBalance = previousBalance
         )
+        viewModelScope.launch {
+            val branch = repositoryContainer.branchRepository.getBranchById(branchId).firstOrNull()
+            if (branch != null && branch.commissionRate > BigDecimal.ZERO) {
+                val rateStr = branch.commissionRate.stripTrailingZeros().toPlainString()
+                updateAmounts { it.copy(commissionRateInput = rateStr) }
+            }
+        }
     }
 
     fun updateWeekStart(value: String) = _uiState.update { it.copy(weekStart = value) }
@@ -81,6 +89,15 @@ class WeeklySettlementViewModel(
             }
             if (commissionRate > BigDecimal("100")) return@launch setError("La comisión no puede superar el 100%")
 
+            val grossProfit = sales.subtract(prizes)
+            val calculatedCommission = sales.multiply(commissionRate)
+                .divide(BigDecimal("100"), 2, RoundingMode.HALF_UP)
+            val commissionAmount = if (grossProfit <= BigDecimal.ZERO) {
+                BigDecimal.ZERO
+            } else {
+                calculatedCommission.min(grossProfit)
+            }
+
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
             try {
                 repositoryContainer.registerWeeklySettlement(
@@ -92,9 +109,9 @@ class WeeklySettlementViewModel(
                         salesAmount = sales,
                         prizesAmount = prizes,
                         commissionRate = commissionRate,
-                        commissionAmount = state.commissionAmount,
+                        commissionAmount = commissionAmount,
                         cashDeliveredAmount = cashDelivered,
-                        weeklyBalance = sales.subtract(prizes).subtract(state.commissionAmount).add(cashDelivered),
+                        weeklyBalance = grossProfit.subtract(commissionAmount).add(cashDelivered),
                         balanceBefore = state.previousBalance,
                         balanceAfter = state.projectedBalance,
                         notes = state.notesInput.trim().ifBlank { null }
@@ -113,10 +130,20 @@ class WeeklySettlementViewModel(
         _uiState.update { current ->
             val updated = update(current)
             val sales = updated.salesInput.toAmountOrZero()
-            val commission = sales.multiply(updated.commissionRateInput.toAmountOrZero())
-                .divide(BigDecimal("100"), 2, RoundingMode.HALF_UP)
-            val weekly = sales.subtract(updated.prizesInput.toAmountOrZero())
-                .subtract(commission)
+            val prizes = updated.prizesInput.toAmountOrZero()
+            val grossProfit = sales.subtract(prizes)
+
+            // Regla de negocio:
+            // "Pago de comisiones se descuentan de las ganancias si no ganan no se paga. No de caja chica."
+            val commission = if (grossProfit <= BigDecimal.ZERO) {
+                BigDecimal.ZERO
+            } else {
+                val calculated = sales.multiply(updated.commissionRateInput.toAmountOrZero())
+                    .divide(BigDecimal("100"), 2, RoundingMode.HALF_UP)
+                calculated.min(grossProfit)
+            }
+
+            val weekly = grossProfit.subtract(commission)
                 .add(updated.cashDeliveredInput.toAmountOrZero())
             updated.copy(
                 commissionAmount = commission,

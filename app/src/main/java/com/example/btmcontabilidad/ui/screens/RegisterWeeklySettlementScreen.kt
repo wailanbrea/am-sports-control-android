@@ -126,7 +126,20 @@ fun RegisterWeeklySettlementScreen(
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Resumen contable", fontWeight = FontWeight.Bold)
                         Text("Saldo anterior: ${FinancialCalculator.formatCurrency(state.previousBalance)}")
-                        Text("Comisión (${state.commissionRateInput.ifBlank { "0" }}%): ${FinancialCalculator.formatCurrency(state.commissionAmount)}")
+
+                        val sales = state.salesInput.toBigDecimalOrNull() ?: BigDecimal.ZERO
+                        val prizes = state.prizesInput.toBigDecimalOrNull() ?: BigDecimal.ZERO
+                        val hasNoProfit = (sales > BigDecimal.ZERO || prizes > BigDecimal.ZERO) && sales <= prizes
+                        if (hasNoProfit) {
+                            Text(
+                                "Comisión (${state.commissionRateInput.ifBlank { "0" }}%): $0.00 (Sin ganancia — No aplica)",
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Medium
+                            )
+                        } else {
+                            Text("Comisión (${state.commissionRateInput.ifBlank { "0" }}%): ${FinancialCalculator.formatCurrency(state.commissionAmount)}")
+                        }
+
                         Text("Balance semanal: ${FinancialCalculator.formatCurrency(state.weeklyBalance)}")
                         Text("Saldo después del cuadre: ${FinancialCalculator.formatCurrency(state.projectedBalance)}", fontWeight = FontWeight.Bold)
                         Text(
@@ -140,6 +153,13 @@ fun RegisterWeeklySettlementScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
                         )
+                        if (hasNoProfit) {
+                            Text(
+                                "💡 Las comisiones solo se descuentan de las ganancias; si la banca no genera ganancia, no se paga comisión ni se toma de caja chica.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }

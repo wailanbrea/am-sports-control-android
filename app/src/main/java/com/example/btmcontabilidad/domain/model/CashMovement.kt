@@ -18,16 +18,34 @@ data class CashMovement(
     val type: CashMovementType,
     @Serializable(with = BigDecimalSerializer::class)
     val amount: BigDecimal,
+    @Serializable(with = BigDecimalSerializer::class)
+    val balanceBefore: BigDecimal? = null,
+    @Serializable(with = BigDecimalSerializer::class)
+    val balanceAfter: BigDecimal? = null,
     val businessDate: String,
     val reason: String,
     val branchId: String? = null,
     val reference: String? = null,
     val notes: String? = null,
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    val createdBy: String? = null
+)
+
+@Serializable
+data class CashBoxEntity(
+    val id: Long,
+    val name: String,
+    @Serializable(with = BigDecimalSerializer::class)
+    val balance: BigDecimal,
+    val currencyCode: String,
+    val isDefault: Boolean = false,
+    val description: String? = null
 )
 
 @Serializable
 data class CashBox(
+    val id: Long? = null,
+    val name: String? = null,
     val currencyCode: String,
     @Serializable(with = BigDecimalSerializer::class)
     val currentBalance: BigDecimal,

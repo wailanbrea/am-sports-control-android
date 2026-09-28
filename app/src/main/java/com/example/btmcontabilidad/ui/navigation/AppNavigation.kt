@@ -11,7 +11,7 @@ data object DashboardRoute : AppRoute
 data object BancasRoute : AppRoute
 
 @Serializable
-data class BranchDetailRoute(val branchId: String) : AppRoute
+data class BranchDetailRoute(val branchId: String, val refreshKey: Long = 0L) : AppRoute
 
 @Serializable
 data class BranchFormRoute(val branchId: String? = null) : AppRoute
@@ -56,3 +56,8 @@ data object AdvanceListRoute : AppRoute
 @Serializable
 data object CollectorsRoute : AppRoute
 
+@Serializable
+data class RegisterExpenseRoute(
+    val initialBranchId: String? = null,
+    val initialCategoryId: String? = null
+) : AppRoute
