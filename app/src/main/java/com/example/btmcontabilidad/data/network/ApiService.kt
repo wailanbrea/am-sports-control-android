@@ -317,6 +317,7 @@ data class CreateWeeklySettlementRequest(
     val sales_amount: String,
     val prizes_amount: String,
     val commission_rate: String,
+    val commission_amount: String? = null,
     val cash_delivered_amount: String,
     val absorb_loss: Boolean? = true,
     val notes: String? = null

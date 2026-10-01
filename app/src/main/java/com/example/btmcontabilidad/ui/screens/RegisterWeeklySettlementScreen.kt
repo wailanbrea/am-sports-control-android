@@ -1,6 +1,5 @@
 package com.example.btmcontabilidad.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,8 +19,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -39,8 +36,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -55,30 +52,36 @@ import java.math.BigDecimal
 @Composable
 fun RegisterWeeklySettlementScreen(
     branchId: String,
-    previousBalance: BigDecimal,
-    viewModel: WeeklySettlementViewModel = viewModel(),
-    onNavigateBack: () -> Unit = {},
-    onSaved: () -> Unit = {}
+    previousBalance: BigDecimal = BigDecimal.ZERO,
+    onNavigateBack: () -> Unit,
+    onSaved: () -> Unit = onNavigateBack,
+    viewModel: WeeklySettlementViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(branchId, previousBalance) { viewModel.initialize(branchId, previousBalance) }
+    LaunchedEffect(branchId, previousBalance) {
+        viewModel.initialize(branchId, previousBalance)
+    }
+
+    LaunchedEffect(state.settlementSaved) {
+        if (state.settlementSaved) {
+            onSaved()
+        }
+    }
+
     LaunchedEffect(state.errorMessage) {
         state.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessages()
         }
     }
-    LaunchedEffect(state.settlementSaved) {
-        if (state.settlementSaved) onSaved()
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Cuadre semanal", fontWeight = FontWeight.Bold) },
+                title = { Text("Cuadre Semanal", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
@@ -93,41 +96,90 @@ fun RegisterWeeklySettlementScreen(
         ) {
             item {
                 Text(
-                    "Registre las ventas, premios y dinero entregado de la semana. Puede liquidar la semana para comenzar el lunes en $0.00 sin cargar pérdidas al vendedor.",
-                    style = MaterialTheme.typography.bodyMedium
+                    "Ingrese los datos del reporte de la máquina (Periódico Riferos). Si la semana arroja pérdida, el consorcio la asume y el vendedor arranca en $0.00 sin tocar Caja Chica.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            // Datos del Reporte de MegaLottery
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MoneyField("Ventas semanales", state.salesInput, viewModel::updateSales)
-                    MoneyField("Premios pagados", state.prizesInput, viewModel::updatePrizes)
-                    MoneyField("Comisión (%)", state.commissionRateInput, viewModel::updateCommissionRate)
-                    MoneyField("Efectivo llevado a la banca (desde Caja Chica)", state.cashDeliveredInput, viewModel::updateCashDelivered)
-                    Text(
-                        text = "💡 Si llevaste dinero de caja chica para premios y no se recuperó con las ventas, la opción de liquidar abajo lo absorbe como pérdida para que el rifero arranque el lunes en $0.00.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Card(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            "Datos del Periódico Riferos",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+
+                        MoneyField("Venta Juegos (US$)", state.salesInput, viewModel::updateSales)
+                        MoneyField("Premios Pagados (US$)", state.prizesInput, viewModel::updatePrizes)
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = state.commissionRateInput,
+                                onValueChange = viewModel::updateCommissionRate,
+                                modifier = Modifier.weight(1f),
+                                label = { Text("Comisión (%)") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            OutlinedTextField(
+                                value = state.commissionAmountInput,
+                                onValueChange = viewModel::updateCommissionAmount,
+                                modifier = Modifier.weight(1.3f),
+                                label = { Text("Monto Comisión ($)") },
+                                placeholder = { Text(FinancialCalculator.formatCurrency(state.commissionAmount)) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                        }
+
+                        MoneyField("Efectivo llevado para premios (opcional)", state.cashDeliveredInput, viewModel::updateCashDelivered)
+                        Text(
+                            text = "💡 Si durante la semana llevaste dinero físico a la banca para cubrir premios, regístralo aquí si no lo habías registrado antes.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
+
+            // Fechas y Observaciones
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = state.weekStart,
-                        onValueChange = viewModel::updateWeekStart,
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Inicio de semana (AAAA-MM-DD)") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                    OutlinedTextField(
-                        value = state.weekEnd,
-                        onValueChange = viewModel::updateWeekEnd,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Fin de semana (AAAA-MM-DD)") },
-                        singleLine = true,
-                        shape = RoundedCornerShape(12.dp)
-                    )
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = state.weekStart,
+                            onValueChange = viewModel::updateWeekStart,
+                            modifier = Modifier.weight(1f),
+                            label = { Text("Inicio (AAAA-MM-DD)") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        OutlinedTextField(
+                            value = state.weekEnd,
+                            onValueChange = viewModel::updateWeekEnd,
+                            modifier = Modifier.weight(1f),
+                            label = { Text("Fin (AAAA-MM-DD)") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
                     OutlinedTextField(
                         value = state.notesInput,
                         onValueChange = viewModel::updateNotes,
@@ -138,100 +190,64 @@ fun RegisterWeeklySettlementScreen(
                 }
             }
 
-            // Opción de Liquidar Semana en $0.00 (Absorber Pérdida)
-            item {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = if (state.absorbLoss) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-                            else MaterialTheme.colorScheme.surfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { viewModel.toggleAbsorbLoss(!state.absorbLoss) }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = state.absorbLoss,
-                            onCheckedChange = viewModel::toggleAbsorbLoss,
-                            colors = CheckboxDefaults.colors(checkedColor = PrimaryBlue)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "🛡️ Liquidar semana en $0.00 (Absorber pérdida)",
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = "Si la banca cierra en negativo o el dinero llevado no se recuperó, el consorcio absorbe la pérdida. La semana queda en $0.00 y NO se le suma a la deuda del vendedor.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-
             // Resumen Contable Protegido sin distorsión (Regla 8)
             item {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Resumen contable", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                        Text("Resumen del Cuadre", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Saldo anterior de la banca:")
+                            Text("Saldo anterior del vendedor:")
                             Text(FinancialCalculator.formatCurrency(state.previousBalance), fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                         }
 
                         val sales = state.salesInput.toBigDecimalOrNull() ?: BigDecimal.ZERO
                         val prizes = state.prizesInput.toBigDecimalOrNull() ?: BigDecimal.ZERO
                         val cashDelivered = state.cashDeliveredInput.toBigDecimalOrNull() ?: BigDecimal.ZERO
-                        val hasNoProfit = (sales > BigDecimal.ZERO || prizes > BigDecimal.ZERO) && sales <= prizes
 
                         if (sales > BigDecimal.ZERO) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Ventas brutas:")
+                                Text("Venta juegos:")
                                 Text(FinancialCalculator.formatCurrency(sales), maxLines = 1, softWrap = false)
                             }
                         }
                         if (prizes > BigDecimal.ZERO) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Premios pagados:")
+                                Text("Premios:")
                                 Text("-${FinancialCalculator.formatCurrency(prizes)}", color = MaterialTheme.colorScheme.error, maxLines = 1, softWrap = false)
                             }
                         }
-
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Comisión (${state.commissionRateInput.ifBlank { "0" }}%):")
-                            if (hasNoProfit) {
-                                Text("$0.00 (No aplica)", color = MaterialTheme.colorScheme.error, maxLines = 1, softWrap = false)
-                            } else {
-                                Text(FinancialCalculator.formatCurrency(state.commissionAmount), maxLines = 1, softWrap = false)
-                            }
-                        }
-
-                        if (cashDelivered > BigDecimal.ZERO) {
+                        if (state.commissionAmount > BigDecimal.ZERO) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Efectivo llevado de Caja Chica:")
-                                Text(FinancialCalculator.formatCurrency(cashDelivered), fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+                                Text("Comisión:")
+                                Text("-${FinancialCalculator.formatCurrency(state.commissionAmount)}", color = MaterialTheme.colorScheme.error, maxLines = 1, softWrap = false)
                             }
                         }
 
                         HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
+                        // Resultado del juego (columna TOTAL del papel de MegaLottery)
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Resultado operativo semanal:")
+                            Text("Total papel de máquina:", fontWeight = FontWeight.Bold)
                             Text(
-                                FinancialCalculator.formatCurrency(state.operatingResult),
-                                fontWeight = FontWeight.Bold,
-                                color = if (state.operatingResult < BigDecimal.ZERO) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                FinancialCalculator.formatCurrency(state.gameResult),
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (state.gameResult < BigDecimal.ZERO) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
                                 softWrap = false
                             )
                         }
 
+                        if (cashDelivered > BigDecimal.ZERO) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Dinero llevado para premios:")
+                                Text("+${FinancialCalculator.formatCurrency(cashDelivered)}", fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
+                            }
+                        }
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                        // Conclusión de la semana
                         if (state.isLoss) {
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
@@ -239,59 +255,55 @@ fun RegisterWeeklySettlementScreen(
                                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                             ) {
                                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    if (state.absorbLoss) {
-                                        Text(
-                                            "🛡️ Pérdida semanal asumida: -${FinancialCalculator.formatCurrency(state.lossAbsorbedAmount)}",
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = MaterialTheme.colorScheme.error,
-                                            maxLines = 1,
-                                            softWrap = false
-                                        )
-                                        Text(
-                                            "El dinero llevado o perdido se asume por el consorcio. La semana cierra en $0.00. El rifero arranca el lunes en cero sin deuda adicional.",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onErrorContainer
-                                        )
-                                    } else {
-                                        Text(
-                                            "⚠️ Pérdida acumulada a la cuenta: ${FinancialCalculator.formatCurrency(state.weeklyBalance)}",
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.error,
-                                            maxLines = 1,
-                                            softWrap = false
-                                        )
-                                    }
+                                    Text(
+                                        "🛡️ Pérdida del consorcio: -${FinancialCalculator.formatCurrency(state.lossAbsorbedAmount)}",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = MaterialTheme.colorScheme.error,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                    Text(
+                                        "El consorcio absorbe la pérdida. La semana queda en $0.00 para el vendedor (no se le cobra) y NO se descuenta de Caja Chica.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Balance semanal del vendedor:", fontWeight = FontWeight.SemiBold)
+                                Text("$0.00 (Saldada)", fontWeight = FontWeight.Bold, color = PrimaryBlue, maxLines = 1, softWrap = false)
+                            }
+                        } else {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        "🟢 A cobrar al vendedor: ${FinancialCalculator.formatCurrency(state.weeklyBalance)}",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = PrimaryBlue,
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                    Text(
+                                        "El vendedor tiene este dinero en su gaveta de las ventas netas para entregártelo.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
                                 }
                             }
                         }
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Balance semanal resultante:", fontWeight = FontWeight.SemiBold)
-                            Text(
-                                if (state.isLoss && state.absorbLoss) "$0.00 (Saldada)" else FinancialCalculator.formatCurrency(state.weeklyBalance),
-                                fontWeight = FontWeight.Bold,
-                                color = if (state.isLoss && state.absorbLoss) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                        }
-
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Saldo deudor después del cuadre:", fontWeight = FontWeight.Bold)
+                            Text("Saldo total después del cuadre:", fontWeight = FontWeight.Bold)
                             Text(
                                 FinancialCalculator.formatCurrency(state.projectedBalance),
                                 fontWeight = FontWeight.ExtraBold,
                                 color = MaterialTheme.colorScheme.primary,
                                 maxLines = 1,
                                 softWrap = false
-                            )
-                        }
-
-                        if (hasNoProfit) {
-                            Text(
-                                "💡 Las comisiones solo se descuentan de las ganancias; si la banca no genera ganancia, no se paga comisión ni se toma de caja chica.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -304,15 +316,14 @@ fun RegisterWeeklySettlementScreen(
                     enabled = !state.isSubmitting,
                     modifier = Modifier.fillMaxWidth().height(52.dp),
                     shape = RoundedCornerShape(14.dp),
-                    colors = if (state.isLoss && state.absorbLoss) ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-                             else ButtonDefaults.buttonColors()
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
                 ) {
                     if (state.isSubmitting) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                    } else if (state.isLoss && state.absorbLoss) {
-                        Text("🛡️ Registrar Cuadre y Liquidar en $0.00", fontWeight = FontWeight.Bold)
+                    } else if (state.isLoss) {
+                        Text("🛡️ Guardar Cuadre (Semana a $0.00)", fontWeight = FontWeight.Bold)
                     } else {
-                        Text("Registrar Cuadre Semanal", fontWeight = FontWeight.Bold)
+                        Text("Guardar Cuadre Semanal", fontWeight = FontWeight.Bold)
                     }
                 }
                 Spacer(Modifier.height(24.dp))
@@ -333,4 +344,3 @@ private fun MoneyField(label: String, value: String, onValueChange: (String) -> 
         shape = RoundedCornerShape(12.dp)
     )
 }
-

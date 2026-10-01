@@ -1003,33 +1003,7 @@ fun BranchDetailHeaderCard(
             }
 
             if (isAdmin) {
-                // Primary Actions: Cuadre Semanal y Resultado Manual
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = onRegisterWeeklySettlement,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-                    ) {
-                        Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.padding(end = 4.dp).size(18.dp))
-                        Text("Cuadre Semanal", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
-                    }
-
-                    OutlinedButton(
-                        onClick = onRegisterManualResult,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp).size(18.dp))
-                        Text("Res. Manual", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
-                    }
-                }
-
-                // Quick actions row (Admin)
+                // Las 3 operaciones fundamentales del negocio (Cobro, Llevar Dinero, Cuadre Semanal)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -1038,53 +1012,33 @@ fun BranchDetailHeaderCard(
                         onClick = onRegisterCollection,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue.copy(alpha = 0.85f))
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Payments,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 4.dp).size(18.dp)
-                        )
-                        Text("Cobro", fontWeight = FontWeight.Bold, maxLines = 1)
+                        Icon(Icons.Default.Payments, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Cobro", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                     }
 
-                    OutlinedButton(
+                    Button(
                         onClick = onRegisterMoneyDelivery,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocalAtm,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 4.dp).size(18.dp)
-                        )
-                        Text("Entrega", fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
-
-                    Button(
-                        onClick = onRegisterCommission,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706))
-                    ) {
-                        Text("🤝 Comisión", fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
-                }
-
-                if (roundedBalance < BigDecimal.ZERO) {
-                    Button(
-                        onClick = onAbsorbLoss,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.weight(1.2f),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 6.dp).size(20.dp)
-                        )
-                        Text("🛡️ Pagar Déficit con Caja Chica (Lunes a Cero)", fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.LocalAtm, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Llevar Dinero", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                    }
+
+                    Button(
+                        onClick = onRegisterWeeklySettlement,
+                        modifier = Modifier.weight(1.1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    ) {
+                        Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Cuadre", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
                     }
                 }
 
@@ -1103,7 +1057,7 @@ fun BranchDetailHeaderCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("✏️ Editar Información de la Banca", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Editar Información de la Banca", fontWeight = FontWeight.Bold, color = Color.White)
                 }
             } else {
                 // Cobrador: Solo botón prominente para cobrar

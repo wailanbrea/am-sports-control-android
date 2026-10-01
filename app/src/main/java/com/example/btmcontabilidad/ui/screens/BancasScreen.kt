@@ -528,10 +528,10 @@ fun BranchListItemCard(
                 )
             }
 
-            // Action Buttons
+            // Action Buttons (Las 3 operaciones del negocio)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Button(
                     onClick = onRegisterCollection,
@@ -539,38 +539,25 @@ fun BranchListItemCard(
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Payments,
-                        contentDescription = null,
-                        modifier = Modifier.padding(end = 4.dp)
-                    )
-                    Text("Cobro", fontWeight = FontWeight.SemiBold)
+                    Text("Cobro", fontWeight = FontWeight.SemiBold, maxLines = 1)
                 }
 
                 if (isAdmin) {
+                    OutlinedButton(
+                        onClick = onTransferToBranch,
+                        modifier = Modifier.weight(1.3f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Llevar Dinero", fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    }
+
                     OutlinedButton(
                         onClick = onRegisterWeeklySettlement,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.LocalAtm,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 4.dp)
-                        )
-                        Text("Cuadre", fontWeight = FontWeight.SemiBold)
+                        Text("Cuadre", fontWeight = FontWeight.SemiBold, maxLines = 1)
                     }
-                }
-            }
-
-            if (isAdmin && roundedBalance < BigDecimal.ZERO) {
-                OutlinedButton(
-                    onClick = onTransferToBranch,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.LocalAtm, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                    Text("Entregar dinero a banca", fontWeight = FontWeight.SemiBold)
                 }
             }
 

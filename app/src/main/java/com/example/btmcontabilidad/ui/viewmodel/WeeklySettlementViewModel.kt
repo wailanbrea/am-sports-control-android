@@ -26,16 +26,17 @@ data class WeeklySettlementUiState(
     val salesInput: String = "",
     val prizesInput: String = "",
     val commissionRateInput: String = "20",
+    val commissionAmountInput: String = "",
     val cashDeliveredInput: String = "",
     val notesInput: String = "",
     val previousBalance: BigDecimal = BigDecimal.ZERO,
     val commissionAmount: BigDecimal = BigDecimal.ZERO,
+    val gameResult: BigDecimal = BigDecimal.ZERO,
     val operatingResult: BigDecimal = BigDecimal.ZERO,
     val lossAbsorbedAmount: BigDecimal = BigDecimal.ZERO,
     val weeklyBalance: BigDecimal = BigDecimal.ZERO,
     val projectedBalance: BigDecimal = BigDecimal.ZERO,
     val isLoss: Boolean = false,
-    val absorbLoss: Boolean = true,
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
     val settlementSaved: Boolean = false
@@ -75,8 +76,8 @@ class WeeklySettlementViewModel(
     fun updateSales(value: String) = updateAmounts { it.copy(salesInput = value) }
     fun updatePrizes(value: String) = updateAmounts { it.copy(prizesInput = value) }
     fun updateCommissionRate(value: String) = updateAmounts { it.copy(commissionRateInput = value) }
+    fun updateCommissionAmount(value: String) = updateAmounts { it.copy(commissionAmountInput = value) }
     fun updateCashDelivered(value: String) = updateAmounts { it.copy(cashDeliveredInput = value) }
-    fun toggleAbsorbLoss(value: Boolean) = updateAmounts { it.copy(absorbLoss = value) }
     fun updateNotes(value: String) = _uiState.update { it.copy(notesInput = value) }
     fun clearMessages() = _uiState.update { it.copy(errorMessage = null) }
 
@@ -94,36 +95,23 @@ class WeeklySettlementViewModel(
             }
             if (commissionRate > BigDecimal("100")) return@launch setError("La comisión no puede superar el 100%")
 
-            val grossProfit = sales.subtract(prizes)
             val calculatedCommission = sales.multiply(commissionRate)
                 .divide(BigDecimal("100"), 2, RoundingMode.HALF_UP)
-            val commissionAmount = if (grossProfit <= BigDecimal.ZERO) {
-                BigDecimal.ZERO
+            val commissionAmount = if (state.commissionAmountInput.isNotBlank()) {
+                state.commissionAmountInput.toAmountOrZero()
             } else {
-                calculatedCommission.min(grossProfit)
+                calculatedCommission
             }
 
-            val operatingResult = grossProfit.subtract(commissionAmount)
-            val isOperatingLoss = operatingResult < BigDecimal.ZERO
-            val netWithCash = if (prizes > BigDecimal.ZERO) operatingResult else operatingResult.subtract(cashDelivered)
-            val isLoss = isOperatingLoss || netWithCash < BigDecimal.ZERO
-            val absorbLoss = state.absorbLoss
+            // Resultado del juego (hoja de MegaLottery): Ventas - Premios - Comisión
+            val gameResult = sales.subtract(prizes).subtract(commissionAmount)
+            // Neto considerando dinero llevado previamente para premios
+            val netWithCash = gameResult.add(cashDelivered)
+            val isLoss = netWithCash < BigDecimal.ZERO
 
-            val lossAbsorbedAmount = if (isLoss && absorbLoss) {
-                if (isOperatingLoss) operatingResult.abs() else netWithCash.abs()
-            } else {
-                BigDecimal.ZERO
-            }
-
-            val weeklyBalance = if (isLoss && absorbLoss) {
-                BigDecimal.ZERO
-            } else if (isOperatingLoss) {
-                operatingResult
-            } else {
-                operatingResult.add(cashDelivered)
-            }
-
-            val settlementType = if (isLoss && absorbLoss) "loss_absorbed" else if (weeklyBalance >= BigDecimal.ZERO) "gain" else "loss_unabsorbed"
+            val lossAbsorbedAmount = if (isLoss) netWithCash.abs() else BigDecimal.ZERO
+            val weeklyBalance = if (isLoss) BigDecimal.ZERO else netWithCash
+            val settlementType = if (isLoss) "loss_absorbed" else "gain"
             val finalBalanceAfter = state.previousBalance.add(weeklyBalance)
 
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
@@ -144,7 +132,7 @@ class WeeklySettlementViewModel(
                         balanceBefore = state.previousBalance,
                         balanceAfter = finalBalanceAfter,
                         notes = state.notesInput.trim().ifBlank { null },
-                        status = if (isLoss && absorbLoss) "settled" else "confirmed",
+                        status = if (isLoss) "settled" else "confirmed",
                         settlementType = settlementType
                     )
                 )
@@ -162,44 +150,30 @@ class WeeklySettlementViewModel(
             val updated = update(current)
             val sales = updated.salesInput.toAmountOrZero()
             val prizes = updated.prizesInput.toAmountOrZero()
+            val commissionRate = updated.commissionRateInput.toAmountOrZero()
             val cashDelivered = updated.cashDeliveredInput.toAmountOrZero()
-            val grossProfit = sales.subtract(prizes)
 
-            // Regla de negocio:
-            // "Pago de comisiones se descuentan de las ganancias si no ganan no se paga. No de caja chica."
-            val commission = if (grossProfit <= BigDecimal.ZERO) {
-                BigDecimal.ZERO
+            val calculatedCommission = sales.multiply(commissionRate)
+                .divide(BigDecimal("100"), 2, RoundingMode.HALF_UP)
+            val commission = if (updated.commissionAmountInput.isNotBlank()) {
+                updated.commissionAmountInput.toAmountOrZero()
             } else {
-                val calculated = sales.multiply(updated.commissionRateInput.toAmountOrZero())
-                    .divide(BigDecimal("100"), 2, RoundingMode.HALF_UP)
-                calculated.min(grossProfit)
+                calculatedCommission
             }
 
-            val operatingResult = grossProfit.subtract(commission)
-            val isOperatingLoss = operatingResult < BigDecimal.ZERO
-            val netWithCash = if (prizes > BigDecimal.ZERO) operatingResult else operatingResult.subtract(cashDelivered)
-            val isLoss = isOperatingLoss || netWithCash < BigDecimal.ZERO
-            val absorbLoss = updated.absorbLoss
+            // Resultado del juego (hoja MegaLottery): Ventas - Premios - Comisión
+            val gameResult = sales.subtract(prizes).subtract(commission)
+            val netWithCash = gameResult.add(cashDelivered)
+            val isLoss = netWithCash < BigDecimal.ZERO
 
-            val lossAbsorbed = if (isLoss && absorbLoss) {
-                if (isOperatingLoss) operatingResult.abs() else netWithCash.abs()
-            } else {
-                BigDecimal.ZERO
-            }
-
-            val weekly = if (isLoss && absorbLoss) {
-                BigDecimal.ZERO
-            } else if (isOperatingLoss) {
-                operatingResult
-            } else {
-                operatingResult.add(cashDelivered)
-            }
-
+            val lossAbsorbed = if (isLoss) netWithCash.abs() else BigDecimal.ZERO
+            val weekly = if (isLoss) BigDecimal.ZERO else netWithCash
             val projected = updated.previousBalance.add(weekly)
 
             updated.copy(
-                commissionAmount = commission,
-                operatingResult = FinancialCalculator.roundMoney(operatingResult),
+                commissionAmount = FinancialCalculator.roundMoney(commission),
+                gameResult = FinancialCalculator.roundMoney(gameResult),
+                operatingResult = FinancialCalculator.roundMoney(gameResult),
                 isLoss = isLoss,
                 lossAbsorbedAmount = FinancialCalculator.roundMoney(lossAbsorbed),
                 weeklyBalance = FinancialCalculator.roundMoney(weekly),

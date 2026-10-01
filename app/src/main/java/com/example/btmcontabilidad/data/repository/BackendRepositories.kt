@@ -520,6 +520,7 @@ class BackendWeeklySettlementRepository(private val provider: BackendApiProvider
                 sales_amount = settlement.salesAmount.toPlainString(),
                 prizes_amount = settlement.prizesAmount.toPlainString(),
                 commission_rate = settlement.commissionRate.toPlainString(),
+                commission_amount = settlement.commissionAmount.toPlainString(),
                 cash_delivered_amount = settlement.cashDeliveredAmount.toPlainString(),
                 absorb_loss = settlement.settlementType == "loss_absorbed" || settlement.lossAbsorbedAmount > BigDecimal.ZERO,
                 notes = settlement.notes
