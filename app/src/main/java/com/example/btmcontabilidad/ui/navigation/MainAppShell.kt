@@ -157,7 +157,7 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onEditBranch = { branchId -> backStack.add(BranchFormRoute(branchId)) },
                         onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) },
                         onRegisterWeeklySettlement = { branchId, balance ->
-                            backStack.add(RegisterManualResultRoute(branchId, balance))
+                            backStack.add(RegisterWeeklySettlementRoute(branchId, balance))
                         },
                         onTransferToBranch = { branchId -> backStack.add(RegisterMoneyDeliveryRoute(branchId)) },
                         onRegisterCommission = { branchId ->
@@ -174,7 +174,7 @@ fun MainAppShell(onLogout: () -> Unit = {}) {
                         onRegisterCollection = { branchId -> backStack.add(RegisterCollectionRoute(branchId)) },
                         onRegisterAdvance = { branchId -> backStack.add(RegisterAdvanceRoute(branchId)) },
                         onRegisterWeeklySettlement = { branchId, balance ->
-                            backStack.add(RegisterManualResultRoute(branchId, balance))
+                            backStack.add(RegisterWeeklySettlementRoute(branchId, balance))
                         },
                         onTransferToBranch = { branchId ->
                             backStack.add(RegisterMoneyDeliveryRoute(branchId))

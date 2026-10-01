@@ -30,6 +30,7 @@ data class WeeklySettlementUiState(
     val notesInput: String = "",
     val previousBalance: BigDecimal = BigDecimal.ZERO,
     val commissionAmount: BigDecimal = BigDecimal.ZERO,
+    val operatingResult: BigDecimal = BigDecimal.ZERO,
     val lossAbsorbedAmount: BigDecimal = BigDecimal.ZERO,
     val weeklyBalance: BigDecimal = BigDecimal.ZERO,
     val projectedBalance: BigDecimal = BigDecimal.ZERO,
@@ -102,13 +103,27 @@ class WeeklySettlementViewModel(
                 calculatedCommission.min(grossProfit)
             }
 
-            val netWeeklyOperation = grossProfit.subtract(commissionAmount)
-            val isLoss = netWeeklyOperation < BigDecimal.ZERO
+            val operatingResult = grossProfit.subtract(commissionAmount)
+            val isOperatingLoss = operatingResult < BigDecimal.ZERO
+            val netWithCash = if (prizes > BigDecimal.ZERO) operatingResult else operatingResult.subtract(cashDelivered)
+            val isLoss = isOperatingLoss || netWithCash < BigDecimal.ZERO
             val absorbLoss = state.absorbLoss
 
-            val lossAbsorbedAmount = if (isLoss && absorbLoss) netWeeklyOperation.abs() else BigDecimal.ZERO
-            val weeklyBalance = if (isLoss && absorbLoss) BigDecimal.ZERO else netWeeklyOperation
-            val settlementType = if (isLoss && absorbLoss) "loss_absorbed" else if (netWeeklyOperation >= BigDecimal.ZERO) "gain" else "loss_unabsorbed"
+            val lossAbsorbedAmount = if (isLoss && absorbLoss) {
+                if (isOperatingLoss) operatingResult.abs() else netWithCash.abs()
+            } else {
+                BigDecimal.ZERO
+            }
+
+            val weeklyBalance = if (isLoss && absorbLoss) {
+                BigDecimal.ZERO
+            } else if (isOperatingLoss) {
+                operatingResult
+            } else {
+                operatingResult.add(cashDelivered)
+            }
+
+            val settlementType = if (isLoss && absorbLoss) "loss_absorbed" else if (weeklyBalance >= BigDecimal.ZERO) "gain" else "loss_unabsorbed"
             val finalBalanceAfter = state.previousBalance.add(weeklyBalance)
 
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
@@ -147,6 +162,7 @@ class WeeklySettlementViewModel(
             val updated = update(current)
             val sales = updated.salesInput.toAmountOrZero()
             val prizes = updated.prizesInput.toAmountOrZero()
+            val cashDelivered = updated.cashDeliveredInput.toAmountOrZero()
             val grossProfit = sales.subtract(prizes)
 
             // Regla de negocio:
@@ -159,16 +175,31 @@ class WeeklySettlementViewModel(
                 calculated.min(grossProfit)
             }
 
-            val netWeeklyOperation = grossProfit.subtract(commission)
-            val isLoss = netWeeklyOperation < BigDecimal.ZERO
+            val operatingResult = grossProfit.subtract(commission)
+            val isOperatingLoss = operatingResult < BigDecimal.ZERO
+            val netWithCash = if (prizes > BigDecimal.ZERO) operatingResult else operatingResult.subtract(cashDelivered)
+            val isLoss = isOperatingLoss || netWithCash < BigDecimal.ZERO
             val absorbLoss = updated.absorbLoss
 
-            val lossAbsorbed = if (isLoss && absorbLoss) netWeeklyOperation.abs() else BigDecimal.ZERO
-            val weekly = if (isLoss && absorbLoss) BigDecimal.ZERO else netWeeklyOperation
+            val lossAbsorbed = if (isLoss && absorbLoss) {
+                if (isOperatingLoss) operatingResult.abs() else netWithCash.abs()
+            } else {
+                BigDecimal.ZERO
+            }
+
+            val weekly = if (isLoss && absorbLoss) {
+                BigDecimal.ZERO
+            } else if (isOperatingLoss) {
+                operatingResult
+            } else {
+                operatingResult.add(cashDelivered)
+            }
+
             val projected = updated.previousBalance.add(weekly)
 
             updated.copy(
                 commissionAmount = commission,
+                operatingResult = FinancialCalculator.roundMoney(operatingResult),
                 isLoss = isLoss,
                 lossAbsorbedAmount = FinancialCalculator.roundMoney(lossAbsorbed),
                 weeklyBalance = FinancialCalculator.roundMoney(weekly),

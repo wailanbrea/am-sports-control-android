@@ -1003,15 +1003,30 @@ fun BranchDetailHeaderCard(
             }
 
             if (isAdmin) {
-                // Primary Action: Registrar Resultado Manual (Solo Admin)
-                Button(
-                    onClick = onRegisterManualResult,
+                // Primary Actions: Cuadre Semanal y Resultado Manual
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                    Text("Registrar Resultado Manual", fontWeight = FontWeight.Bold)
+                    Button(
+                        onClick = onRegisterWeeklySettlement,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    ) {
+                        Icon(Icons.Default.Calculate, contentDescription = null, modifier = Modifier.padding(end = 4.dp).size(18.dp))
+                        Text("Cuadre Semanal", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                    }
+
+                    OutlinedButton(
+                        onClick = onRegisterManualResult,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp).size(18.dp))
+                        Text("Res. Manual", fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+                    }
                 }
 
                 // Quick actions row (Admin)
