@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -79,6 +80,7 @@ import com.example.btmcontabilidad.domain.model.WeeklySettlement
 import com.example.btmcontabilidad.domain.model.isCollection
 import com.example.btmcontabilidad.domain.model.isMoneyDelivery
 import com.example.btmcontabilidad.domain.model.isNegativeMovement
+import com.example.btmcontabilidad.ui.components.AbsorbLossDialog
 import com.example.btmcontabilidad.ui.components.ReceiptData
 import com.example.btmcontabilidad.ui.components.ReceiptDialog
 import com.example.btmcontabilidad.ui.components.WhatsAppDarkGreen
@@ -123,6 +125,7 @@ fun BranchDetailScreen(
     var activeReceiptData by remember { mutableStateOf<ReceiptData?>(null) }
     var selectedEntryToReverse by remember { mutableStateOf<LedgerEntry?>(null) }
     var activeCollectionToEdit by remember { mutableStateOf<Collection?>(null) }
+    var showAbsorbLossDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(branchId, refreshKey) {
         viewModel.loadBranch(branchId)
@@ -138,6 +141,31 @@ fun BranchDetailScreen(
         uiState.actionSuccessMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessages()
+        }
+    }
+
+    // Modal para absorber pérdida semanal desde Caja Chica (Lunes a Cero)
+    if (showAbsorbLossDialog) {
+        uiState.branch?.let { b ->
+            AbsorbLossDialog(
+                branchName = b.name,
+                branchCode = b.code,
+                currentDeficit = b.currentBalance,
+                cashBoxes = uiState.cashBoxes,
+                isLoading = uiState.isLoading,
+                onDismiss = { showAbsorbLossDialog = false },
+                onConfirm = { amount, cashBoxId, deductCashBox, businessDate, reason, notes ->
+                    showAbsorbLossDialog = false
+                    viewModel.absorbLoss(
+                        amount = amount,
+                        cashBoxId = cashBoxId,
+                        deductCashBox = deductCashBox,
+                        businessDate = businessDate,
+                        reason = reason,
+                        notes = notes
+                    )
+                }
+            )
         }
     }
 
@@ -286,7 +314,8 @@ fun BranchDetailScreen(
                         onTransferToBranch = { onTransferToBranch(branch.id) },
                         onRegisterManualResult = { onRegisterManualResult(branch.id, branch.currentBalance.toPlainString()) },
                         onRegisterMoneyDelivery = { onRegisterMoneyDelivery(branch.id, branch.currentBalance.abs().toPlainString()) },
-                        onRegisterCommission = { onRegisterCommission(branch.id) }
+                        onRegisterCommission = { onRegisterCommission(branch.id) },
+                        onAbsorbLoss = { showAbsorbLossDialog = true }
                     )
                 }
 
@@ -613,7 +642,8 @@ fun BranchDetailHeaderCard(
     onTransferToBranch: () -> Unit,
     onRegisterManualResult: () -> Unit = {},
     onRegisterMoneyDelivery: () -> Unit = {},
-    onRegisterCommission: () -> Unit = {}
+    onRegisterCommission: () -> Unit = {},
+    onAbsorbLoss: () -> Unit = {}
 ) {
     val roundedBalance = FinancialCalculator.roundMoney(branch.currentBalance)
 
@@ -850,8 +880,56 @@ fun BranchDetailHeaderCard(
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
+                if (branch.historicalDebt > BigDecimal.ZERO) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.White.copy(alpha = 0.08f),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("🏛️ Deuda Anterior / Histórica:", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+                                Text(
+                                    FinancialCalculator.formatCurrency(branch.historicalDebt),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("📅 Resultado Operativo Semanal:", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.75f))
+                                Text(
+                                    FinancialCalculator.formatCurrency(roundedBalance),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (roundedBalance < BigDecimal.ZERO) StatusAlertContent else Color.White
+                                )
+                            }
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("💼 Total Neto Consolidado:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White)
+                                Text(
+                                    FinancialCalculator.formatCurrency(branch.historicalDebt.add(roundedBalance)),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+
                 Text(
-                    text = "BALANCE ACTUAL DE CUENTA CORRIENTE",
+                    text = if (branch.historicalDebt > BigDecimal.ZERO) "SALDO OPERATIVO SEMANAL (ACTUAL)" else "BALANCE ACTUAL DE CUENTA CORRIENTE",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = 0.7f),
                     fontWeight = FontWeight.Bold
@@ -981,13 +1059,17 @@ fun BranchDetailHeaderCard(
 
                 if (roundedBalance < BigDecimal.ZERO) {
                     Button(
-                        onClick = onRegisterMoneyDelivery,
+                        onClick = onAbsorbLoss,
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = StatusAlertContent)
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
                     ) {
-                        Icon(Icons.Default.LocalAtm, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                        Text("Entregar dinero a la banca", fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Shield,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 6.dp).size(20.dp)
+                        )
+                        Text("🛡️ Pagar Déficit con Caja Chica (Lunes a Cero)", fontWeight = FontWeight.Bold)
                     }
                 }
 

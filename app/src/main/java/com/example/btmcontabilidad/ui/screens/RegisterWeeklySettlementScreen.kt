@@ -19,6 +19,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -140,7 +141,28 @@ fun RegisterWeeklySettlementScreen(
                             Text("Comisión (${state.commissionRateInput.ifBlank { "0" }}%): ${FinancialCalculator.formatCurrency(state.commissionAmount)}")
                         }
 
-                        Text("Balance semanal: ${FinancialCalculator.formatCurrency(state.weeklyBalance)}")
+                        if (state.isLoss) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(
+                                        "🛡️ Pérdida de la semana: -${FinancialCalculator.formatCurrency(state.lossAbsorbedAmount)}",
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
+                                        "El consorcio absorbe esta pérdida de caja chica. El vendedor NO queda debiendo este dinero y la semana cierra en $0.00 para comenzar el lunes en cero.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onErrorContainer
+                                    )
+                                }
+                            }
+                        }
+
+                        Text("Balance semanal resultante: ${FinancialCalculator.formatCurrency(state.weeklyBalance)}")
                         Text("Saldo después del cuadre: ${FinancialCalculator.formatCurrency(state.projectedBalance)}", fontWeight = FontWeight.Bold)
                         Text(
                             when {
@@ -148,7 +170,7 @@ fun RegisterWeeklySettlementScreen(
                                     "Monto por recoger: ${FinancialCalculator.formatCurrency(state.projectedBalance)}"
                                 state.projectedBalance < BigDecimal.ZERO ->
                                     "Monto a favor de la banca: ${FinancialCalculator.formatCurrency(state.projectedBalance.abs())}"
-                                else -> "Cuenta saldada"
+                                else -> "Cuenta saldada ($0.00)"
                             },
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary

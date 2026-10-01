@@ -42,7 +42,8 @@ data class BranchDetailUiState(
     val moneyDeliveries: List<MoneyDeliveryEntry> = emptyList(),
     val selectedTab: BranchHistoryTab = BranchHistoryTab.ALL,
     val isAdmin: Boolean = false,
-    val collectors: List<com.example.btmcontabilidad.data.network.CollectorDto> = emptyList()
+    val collectors: List<com.example.btmcontabilidad.data.network.CollectorDto> = emptyList(),
+    val cashBoxes: List<com.example.btmcontabilidad.domain.model.CashBoxEntity> = emptyList()
 )
 
 class BranchDetailViewModel(
@@ -65,6 +66,12 @@ class BranchDetailViewModel(
                         repositoryContainer.collectorRepository.getCollectors().collect { list ->
                             _uiState.update { it.copy(collectors = list) }
                         }
+                    } catch (_: Exception) {}
+                }
+                launch {
+                    try {
+                        val boxes = repositoryContainer.cashBoxRepository.getCashBoxes()
+                        _uiState.update { it.copy(cashBoxes = boxes) }
                     } catch (_: Exception) {}
                 }
             }
@@ -240,6 +247,45 @@ class BranchDetailViewModel(
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(isDeleting = false, errorMessage = e.message ?: "No se pudo eliminar la banca")
+                }
+            }
+        }
+    }
+
+    fun absorbLoss(
+        amount: BigDecimal? = null,
+        cashBoxId: Long? = null,
+        deductCashBox: Boolean = true,
+        businessDate: String? = null,
+        reason: String? = null,
+        notes: String? = null
+    ) {
+        val branchId = currentBranchId ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, actionSuccessMessage = null) }
+            try {
+                repositoryContainer.branchRepository.absorbLoss(
+                    branchId = branchId,
+                    amount = amount,
+                    cashBoxId = cashBoxId,
+                    deductCashBox = deductCashBox,
+                    businessDate = businessDate,
+                    reason = reason,
+                    notes = notes
+                )
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        actionSuccessMessage = "Pérdida absorbida correctamente. La banca ha quedado en 0.00."
+                    )
+                }
+                refresh()
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = e.message ?: "No se pudo absorber la pérdida"
+                    )
                 }
             }
         }

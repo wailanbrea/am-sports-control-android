@@ -19,6 +19,10 @@ data class Branch(
     @Serializable(with = BigDecimalSerializer::class)
     val currentBalance: BigDecimal = BigDecimal.ZERO,
     @Serializable(with = BigDecimalSerializer::class)
+    val historicalDebt: BigDecimal = BigDecimal.ZERO,
+    @Serializable(with = BigDecimalSerializer::class)
+    val weeklyBalance: BigDecimal = BigDecimal.ZERO,
+    @Serializable(with = BigDecimalSerializer::class)
     val commissionRate: BigDecimal = BigDecimal.ZERO,
     val status: BranchStatus = BranchStatus.ACTIVE,
     val collectorUserId: Long? = null,

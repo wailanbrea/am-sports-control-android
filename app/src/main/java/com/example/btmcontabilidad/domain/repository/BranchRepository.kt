@@ -13,6 +13,15 @@ interface BranchRepository {
     suspend fun updateBranch(branch: Branch): Branch
     suspend fun deleteBranch(id: String): Boolean
     suspend fun assignCollector(branchId: String, collectorUserId: Long?): Branch
+    suspend fun absorbLoss(
+        branchId: String,
+        amount: BigDecimal? = null,
+        cashBoxId: Long? = null,
+        deductCashBox: Boolean = true,
+        businessDate: String? = null,
+        reason: String? = null,
+        notes: String? = null
+    ): Boolean = false
     suspend fun fetchBranches(): List<Branch> = emptyList()
     fun invalidateCache() {}
 }

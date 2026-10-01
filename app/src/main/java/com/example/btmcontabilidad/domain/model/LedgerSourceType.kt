@@ -9,5 +9,7 @@ enum class LedgerSourceType(val label: String) {
     MANUAL_RESULT("Resultado Operativo"),
     ADVANCE("Adelanto por Pérdidas"),
     WEEKLY_SETTLEMENT("Cuadre Semanal"),
+    WEEKLY_LOSS_ABSORPTION("Pérdida Semanal Asumida"),
+    PRIZE_FUND("Fondo de Premios"),
     ADJUSTMENT("Ajuste Manual")
 }

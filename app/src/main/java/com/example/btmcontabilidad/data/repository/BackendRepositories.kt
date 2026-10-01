@@ -253,6 +253,34 @@ class BackendBranchRepository(private val provider: BackendApiProvider) : Branch
         cachedBranches = cachedBranches?.map { if (it.id == updated.id) updated else it }
         return updated
     }
+
+    override suspend fun absorbLoss(
+        branchId: String,
+        amount: BigDecimal?,
+        cashBoxId: Long?,
+        deductCashBox: Boolean,
+        businessDate: String?,
+        reason: String?,
+        notes: String?
+    ): Boolean {
+        val req = com.example.btmcontabilidad.data.network.AbsorbLossRequest(
+            amount = amount?.toPlainString(),
+            business_date = businessDate,
+            cash_box_id = cashBoxId,
+            deduct_cash_box = deductCashBox,
+            reason = reason,
+            notes = notes
+        )
+        provider.api().absorbLoss(
+            provider.authorization(),
+            UUID.randomUUID().toString(),
+            branchId,
+            req
+        ).successOrThrow()
+        invalidateCache()
+        runCatching { RepositoryContainer.Instance.clearCaches() }
+        return true
+    }
 }
 
 class BackendCollectionRepository(private val provider: BackendApiProvider) : CollectionRepository {
@@ -493,6 +521,7 @@ class BackendWeeklySettlementRepository(private val provider: BackendApiProvider
                 prizes_amount = settlement.prizesAmount.toPlainString(),
                 commission_rate = settlement.commissionRate.toPlainString(),
                 cash_delivered_amount = settlement.cashDeliveredAmount.toPlainString(),
+                absorb_loss = settlement.settlementType == "loss_absorbed" || settlement.lossAbsorbedAmount > BigDecimal.ZERO,
                 notes = settlement.notes
             )
         ).dataOrThrow().toDomain()
@@ -761,6 +790,7 @@ private fun BranchResponse.toDomain() = Branch(
     ownerName = owner_name,
     ownerPhone = owner_phone ?: owner_whatsapp,
     currentBalance = current_balance.toAmount(BigDecimal.ZERO),
+    historicalDebt = historical_debt.toAmount(BigDecimal.ZERO),
     commissionRate = commission_rate.toAmount(BigDecimal.ZERO),
     status = status.toEnum(BranchStatus.ACTIVE),
     collectorUserId = collector_user_id ?: collector?.id,
@@ -777,11 +807,13 @@ private fun WeeklySettlementResponse.toDomain() = WeeklySettlement(
     commissionRate = commission_rate.toAmount(BigDecimal.ZERO),
     commissionAmount = commission_amount.toAmount(BigDecimal.ZERO),
     cashDeliveredAmount = cash_delivered_amount.toAmount(BigDecimal.ZERO),
+    lossAbsorbedAmount = loss_absorbed_amount.toAmount(BigDecimal.ZERO),
     weeklyBalance = weekly_balance.toAmount(BigDecimal.ZERO),
     balanceBefore = balance_before.toAmount(BigDecimal.ZERO),
     balanceAfter = balance_after.toAmount(BigDecimal.ZERO),
     notes = notes,
-    status = status ?: "confirmed"
+    status = status ?: "confirmed",
+    settlementType = settlement_type ?: "standard"
 )
 
 private fun Branch.toRequest() = BranchRequest(
@@ -825,6 +857,8 @@ private fun AdvanceResponse.toDomain() = Advance(
 private fun String?.toLedgerSourceType(entryType: String?, description: String?): LedgerSourceType {
     val s = (this.orEmpty() + " " + entryType.orEmpty() + " " + description.orEmpty()).lowercase()
     return when {
+        s.contains("loss_absorb") || s.contains("asumida por el consorcio") || s.contains("semana a cero") || s.contains("pérdida semanal") -> LedgerSourceType.WEEKLY_LOSS_ABSORPTION
+        s.contains("prize_fund") || s.contains("fondo de premios") -> LedgerSourceType.PRIZE_FUND
         s.contains("collection") || s.contains("cobro") -> LedgerSourceType.COLLECTION
         s.contains("moneydelivery") || s.contains("money_delivery") || s.contains("dinero llevado") -> LedgerSourceType.MONEY_DELIVERY
         s.contains("manualresult") || s.contains("manual_result") || s.contains("resultado") -> LedgerSourceType.MANUAL_RESULT

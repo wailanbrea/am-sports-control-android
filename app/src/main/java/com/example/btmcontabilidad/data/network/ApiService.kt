@@ -62,6 +62,14 @@ interface ApiService {
         @Body request: AssignCollectorRequest
     ): Response<ApiEnvelope<BranchResponse>>
 
+    @POST("branches/{branchId}/absorb-loss")
+    suspend fun absorbLoss(
+        @Header("Authorization") bearerToken: String,
+        @Header("Idempotency-Key") idempotencyKey: String,
+        @Path("branchId") branchId: String,
+        @Body request: AbsorbLossRequest
+    ): Response<ApiEnvelope<AbsorbLossResponse>>
+
     @GET("ledger")
     suspend fun ledger(
         @Header("Authorization") bearerToken: String,
@@ -310,6 +318,7 @@ data class CreateWeeklySettlementRequest(
     val prizes_amount: String,
     val commission_rate: String,
     val cash_delivered_amount: String,
+    val absorb_loss: Boolean? = true,
     val notes: String? = null
 )
 
@@ -324,11 +333,13 @@ data class WeeklySettlementResponse(
     val commission_rate: String?,
     val commission_amount: String?,
     val cash_delivered_amount: String?,
+    val loss_absorbed_amount: String? = null,
     val weekly_balance: String?,
     val balance_before: String?,
     val balance_after: String?,
     val notes: String? = null,
-    val status: String? = null
+    val status: String? = null,
+    val settlement_type: String? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -413,6 +424,7 @@ data class BranchResponse(
     val route: String? = null,
     val operator_name: String? = null,
     val current_balance: String? = null,
+    val historical_debt: String? = null,
     val commission_rate: String? = null,
     val status: String? = null,
     val collector_user_id: Long? = null,
@@ -528,7 +540,8 @@ data class CreateMoneyDeliveryRequest(
     val cash_box_id: Long? = null,
     val business_date: String,
     val reason: String,
-    val notes: String? = null
+    val notes: String? = null,
+    val adjust_branch_balance: Boolean? = null
 )
 
 @JsonClass(generateAdapter = true)
@@ -563,4 +576,27 @@ data class MoneyDeliveryByBranchResponse(
     val branch_name: String?,
     val total: String?,
     val count: Int? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AbsorbLossRequest(
+    val amount: String? = null,
+    val business_date: String? = null,
+    val cash_box_id: Long? = null,
+    val deduct_cash_box: Boolean? = true,
+    val reason: String? = null,
+    val notes: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AbsorbLossResponse(
+    val branch_id: Long?,
+    val branch_code: String?,
+    val branch_name: String?,
+    val amount_absorbed: String?,
+    val balance_before: String?,
+    val balance_after: String?,
+    val ledger_entry_id: Long?,
+    val cash_movement_id: Long?,
+    val deducted_from_cash_box: Boolean?
 )

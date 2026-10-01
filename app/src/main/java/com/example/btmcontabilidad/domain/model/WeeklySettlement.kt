@@ -21,11 +21,14 @@ data class WeeklySettlement(
     @Serializable(with = BigDecimalSerializer::class)
     val cashDeliveredAmount: BigDecimal,
     @Serializable(with = BigDecimalSerializer::class)
+    val lossAbsorbedAmount: BigDecimal = BigDecimal.ZERO,
+    @Serializable(with = BigDecimalSerializer::class)
     val weeklyBalance: BigDecimal,
     @Serializable(with = BigDecimalSerializer::class)
     val balanceBefore: BigDecimal,
     @Serializable(with = BigDecimalSerializer::class)
     val balanceAfter: BigDecimal,
     val notes: String? = null,
-    val status: String = "confirmed"
+    val status: String = "confirmed",
+    val settlementType: String = "standard"
 )

@@ -30,8 +30,11 @@ data class WeeklySettlementUiState(
     val notesInput: String = "",
     val previousBalance: BigDecimal = BigDecimal.ZERO,
     val commissionAmount: BigDecimal = BigDecimal.ZERO,
+    val lossAbsorbedAmount: BigDecimal = BigDecimal.ZERO,
     val weeklyBalance: BigDecimal = BigDecimal.ZERO,
     val projectedBalance: BigDecimal = BigDecimal.ZERO,
+    val isLoss: Boolean = false,
+    val absorbLoss: Boolean = true,
     val isSubmitting: Boolean = false,
     val errorMessage: String? = null,
     val settlementSaved: Boolean = false
@@ -72,6 +75,7 @@ class WeeklySettlementViewModel(
     fun updatePrizes(value: String) = updateAmounts { it.copy(prizesInput = value) }
     fun updateCommissionRate(value: String) = updateAmounts { it.copy(commissionRateInput = value) }
     fun updateCashDelivered(value: String) = updateAmounts { it.copy(cashDeliveredInput = value) }
+    fun toggleAbsorbLoss(value: Boolean) = updateAmounts { it.copy(absorbLoss = value) }
     fun updateNotes(value: String) = _uiState.update { it.copy(notesInput = value) }
     fun clearMessages() = _uiState.update { it.copy(errorMessage = null) }
 
@@ -98,6 +102,15 @@ class WeeklySettlementViewModel(
                 calculatedCommission.min(grossProfit)
             }
 
+            val netWeeklyOperation = grossProfit.subtract(commissionAmount)
+            val isLoss = netWeeklyOperation < BigDecimal.ZERO
+            val absorbLoss = state.absorbLoss
+
+            val lossAbsorbedAmount = if (isLoss && absorbLoss) netWeeklyOperation.abs() else BigDecimal.ZERO
+            val weeklyBalance = if (isLoss && absorbLoss) BigDecimal.ZERO else netWeeklyOperation
+            val settlementType = if (isLoss && absorbLoss) "loss_absorbed" else if (netWeeklyOperation >= BigDecimal.ZERO) "gain" else "loss_unabsorbed"
+            val finalBalanceAfter = state.previousBalance.add(weeklyBalance)
+
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
             try {
                 repositoryContainer.registerWeeklySettlement(
@@ -111,10 +124,13 @@ class WeeklySettlementViewModel(
                         commissionRate = commissionRate,
                         commissionAmount = commissionAmount,
                         cashDeliveredAmount = cashDelivered,
-                        weeklyBalance = grossProfit.subtract(commissionAmount).add(cashDelivered),
+                        lossAbsorbedAmount = lossAbsorbedAmount,
+                        weeklyBalance = weeklyBalance,
                         balanceBefore = state.previousBalance,
-                        balanceAfter = state.projectedBalance,
-                        notes = state.notesInput.trim().ifBlank { null }
+                        balanceAfter = finalBalanceAfter,
+                        notes = state.notesInput.trim().ifBlank { null },
+                        status = if (isLoss && absorbLoss) "settled" else "confirmed",
+                        settlementType = settlementType
                     )
                 )
                 _uiState.update { it.copy(isSubmitting = false, settlementSaved = true) }
@@ -143,12 +159,20 @@ class WeeklySettlementViewModel(
                 calculated.min(grossProfit)
             }
 
-            val weekly = grossProfit.subtract(commission)
-                .add(updated.cashDeliveredInput.toAmountOrZero())
+            val netWeeklyOperation = grossProfit.subtract(commission)
+            val isLoss = netWeeklyOperation < BigDecimal.ZERO
+            val absorbLoss = updated.absorbLoss
+
+            val lossAbsorbed = if (isLoss && absorbLoss) netWeeklyOperation.abs() else BigDecimal.ZERO
+            val weekly = if (isLoss && absorbLoss) BigDecimal.ZERO else netWeeklyOperation
+            val projected = updated.previousBalance.add(weekly)
+
             updated.copy(
                 commissionAmount = commission,
+                isLoss = isLoss,
+                lossAbsorbedAmount = FinancialCalculator.roundMoney(lossAbsorbed),
                 weeklyBalance = FinancialCalculator.roundMoney(weekly),
-                projectedBalance = FinancialCalculator.roundMoney(updated.previousBalance.add(weekly))
+                projectedBalance = FinancialCalculator.roundMoney(projected)
             )
         }
     }
