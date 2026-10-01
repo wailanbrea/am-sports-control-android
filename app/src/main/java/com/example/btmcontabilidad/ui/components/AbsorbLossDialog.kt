@@ -30,6 +30,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
@@ -119,32 +120,35 @@ fun AbsorbLossDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Info Banner
+                // Info Banner con monto destacado sin distorsión
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = StatusAlertBg.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(14.dp),
+                    color = StatusAlertBg.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = "Déficit / Saldo en negativo:",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = StatusAlertContent
-                            )
-                            Text(
-                                text = FinancialCalculator.formatCurrency(currentDeficit),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = StatusAlertContent
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Déficit / Saldo en negativo:",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = StatusAlertContent
+                        )
+                        Text(
+                            text = FinancialCalculator.formatCurrency(currentDeficit),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = StatusAlertContent,
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        HorizontalDivider(
+                            color = StatusAlertContent.copy(alpha = 0.25f),
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
                         Text(
                             text = "🛡️ Esta operación dejará el balance de la banca en $0.00 para comenzar el lunes en cero. No generará deuda exigible al rifero.",
                             style = MaterialTheme.typography.bodySmall,
@@ -280,51 +284,61 @@ fun AbsorbLossDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val parsed = amountInput.toBigDecimalOrNull()
-                    if (parsed == null || parsed <= BigDecimal.ZERO) {
-                        validationError = "Ingrese un monto mayor a cero"
-                        return@Button
-                    }
-                    if (businessDate.isBlank()) {
-                        validationError = "Indique la fecha contable"
-                        return@Button
-                    }
-                    onConfirm(
-                        parsed,
-                        if (deductCashBox) selectedCashBox?.id else null,
-                        deductCashBox,
-                        businessDate.trim(),
-                        reasonInput.trim().ifBlank { "Pérdida semanal asumida por el consorcio" },
-                        notesInput.trim().ifBlank { null }
-                    )
-                },
-                enabled = !isLoading,
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                shape = RoundedCornerShape(12.dp)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Confirmar y Dejar en Cero", fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = {
+                        val parsed = amountInput.toBigDecimalOrNull()
+                        if (parsed == null || parsed <= BigDecimal.ZERO) {
+                            validationError = "Ingrese un monto mayor a cero"
+                            return@Button
+                        }
+                        if (businessDate.isBlank()) {
+                            validationError = "Indique la fecha contable"
+                            return@Button
+                        }
+                        onConfirm(
+                            parsed,
+                            if (deductCashBox) selectedCashBox?.id else null,
+                            deductCashBox,
+                            businessDate.trim(),
+                            reasonInput.trim().ifBlank { "Pérdida semanal asumida por el consorcio" },
+                            notesInput.trim().ifBlank { null }
+                        )
+                    },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Confirmar y Dejar en Cero", fontWeight = FontWeight.Bold)
+                    }
+                }
+                OutlinedButton(
+                    onClick = onDismiss,
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Cancelar", fontWeight = FontWeight.SemiBold)
                 }
             }
         },
-        dismissButton = {
-            OutlinedButton(
-                onClick = onDismiss,
-                enabled = !isLoading,
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Cancelar")
-            }
-        }
+        dismissButton = null
     )
 }
